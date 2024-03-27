@@ -194,6 +194,22 @@ public class DBHelper {
             pstmt.executeUpdate();
         }
     }
+    public void updateItem(int itemId, String title, String manufacturer, double price, String category, int quantity, int adminId) {
+        String sql = "UPDATE items SET title = ?, manufacturer = ?, price = ?, category = ?, quantity = ?, last_updated_by_admin_id = ? WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, title);
+            pstmt.setString(2, manufacturer);
+            pstmt.setDouble(3, price);
+            pstmt.setString(4, category);
+            pstmt.setInt(5, quantity);
+            pstmt.setInt(6, adminId); // Set the admin ID
+            pstmt.setInt(7, itemId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
 
     private int insertOrder(Connection conn, Order order) throws SQLException {
         String sql = "INSERT INTO orders (customer_id, total_price, order_date) VALUES (?, ?, ?)";

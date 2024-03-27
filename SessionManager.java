@@ -1,19 +1,26 @@
 public class SessionManager {
-    private static Customer currentCustomer = null;
+    private static String currentUsername = null;
+    private static boolean isAdmin = false;
 
-    public static void login(Customer customer) {
-        currentCustomer = customer;
+    public static void login(String username, boolean isAdmin) {
+        currentUsername = username;
+        SessionManager.isAdmin = isAdmin;
     }
 
     public static void logout() {
-        currentCustomer = null;
+        currentUsername = null;
+        isAdmin = false;
     }
 
-    public static Customer getCurrentCustomer() {
-        return currentCustomer;
+    public static String getCurrentUsername() {
+        return currentUsername;
     }
 
     public static boolean isLoggedIn() {
-        return currentCustomer != null;
+        return currentUsername != null;
+    }
+
+    public static boolean isAdmin() {
+        return isAdmin;
     }
 }

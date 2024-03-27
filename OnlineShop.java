@@ -55,13 +55,13 @@ public class OnlineShop extends JFrame {
         pack();
     }
 
-    private void showAdminLogin(ActionEvent e) {
-        setupLoginPanel("Admin Login", false);
-    }
+   
 
     private void showCustomerLogin(ActionEvent e) {
         setupLoginPanel("Customer Login", true);
     }
+    
+    
     
     private void showRegistrationForm() {
         contentPanel.removeAll();
@@ -113,7 +113,47 @@ public class OnlineShop extends JFrame {
         contentPanel.repaint();
         pack();
     }
-    
+    private void showAdminLogin(ActionEvent e) {
+        contentPanel.removeAll();
+        contentPanel.setLayout(new MigLayout("wrap 2", "[align right]10[align left, grow]", "[]10[]"));
+
+        JTextField usernameField = new JTextField(15);
+        JPasswordField passwordField = new JPasswordField(15);
+
+        contentPanel.add(new JLabel("Admin Login"), "span, grow, wrap");
+        contentPanel.add(new JLabel("Username:"));
+        contentPanel.add(usernameField, "growx");
+
+        contentPanel.add(new JLabel("Password:"));
+        contentPanel.add(passwordField, "growx");
+
+        JButton loginButton = new JButton("Login");
+        loginButton.addActionListener(e1 -> {
+            String username = usernameField.getText();
+            String password = new String(passwordField.getPassword());
+
+            adminLog adminLog = new adminLog();
+            boolean authenticated = adminLog.authenticateCust(username, password);
+
+            if (authenticated) {
+                // Replace with method to navigate to admin dashboard
+                navigateToAdminDashboard();
+            } else {
+                JOptionPane.showMessageDialog(this, "Admin Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
+                // Optionally, log the failed login attempt for debugging or security purposes
+                System.out.println("Failed admin login attempt with username: " + username);
+            }
+        });
+
+        contentPanel.add(loginButton, "span, growx");
+
+        contentPanel.revalidate();
+        contentPanel.repaint();
+        pack();
+    }
+    private void navigateToAdminDashboard() {
+        new AdminDashboard(); // Create and display the admin dashboard
+    }
 
     private void setupLoginPanel(String title, boolean showRegister) {
         contentPanel.removeAll();
@@ -164,6 +204,7 @@ public class OnlineShop extends JFrame {
         pack();
     }
 
+   
 
 
 
