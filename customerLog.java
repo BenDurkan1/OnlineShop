@@ -34,4 +34,22 @@ public class  customerLog {
         
         return false; // Authentication failed
     }
+    
+    public String getCustomerUsername(String username) {
+        String sql = "SELECT username FROM CustomerShop WHERE username = ?";
+        try (
+            Connection connection = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
+            PreparedStatement preparedStatement = connection.prepareStatement(sql)
+        ) {
+            preparedStatement.setString(1, username);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getString("username"); // Return the username
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null; // User not found or error
+    }
+    
 }

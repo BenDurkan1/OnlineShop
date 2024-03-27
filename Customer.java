@@ -6,10 +6,9 @@ public class Customer {
     private String paymentMethod;
 
     // Constructor
-    public Customer(int id, String username, String password, String shippingAddress, String paymentMethod) {
+    public Customer(int id, String username, String shippingAddress, String paymentMethod) {
         this.id = id;
         this.username = username;
-        this.password = password;
         this.shippingAddress = shippingAddress;
         this.paymentMethod = paymentMethod;
     }
@@ -54,4 +53,5 @@ public class Customer {
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
+    
 }

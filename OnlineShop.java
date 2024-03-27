@@ -1,17 +1,27 @@
 import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
+
+
 import java.awt.event.ActionEvent;
 import java.sql.Connection;
+import java.sql.DriverManager;
+import java.util.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class OnlineShop extends JFrame {
     private JPanel contentPanel; // Panel to dynamically update content
+    private Customer currentCustomer; // The currently logged-in customer
 
+        // Other actions to perform upon login, like showing the catalog
+    
     public OnlineShop() {
         setTitle("Customer Registration and Login");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -103,6 +113,7 @@ public class OnlineShop extends JFrame {
         contentPanel.repaint();
         pack();
     }
+    
 
     private void setupLoginPanel(String title, boolean showRegister) {
         contentPanel.removeAll();
@@ -127,8 +138,14 @@ public class OnlineShop extends JFrame {
             );
 
             if (isAuthenticated) {
+                // Assuming you have a Customer constructor that takes minimal info
+                // Here, using username; adjust based on your actual Customer constructor
+                Customer customer = new Customer(0, usernameField.getText(), "", ""); // Dummy values for id, shippingAddress, and paymentMethod
+
+                SessionManager.login(customer);
                 JOptionPane.showMessageDialog(this, "Login Successful.");
-                // Transition to next part of application
+
+                // Transition to next part of the application
                 showCatalog();
             } else {
                 JOptionPane.showMessageDialog(this, "Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
@@ -148,12 +165,16 @@ public class OnlineShop extends JFrame {
     }
 
 
-    private DBHelper dbHelper = new DBHelper();
 
+
+	private DBHelper dbHelper = new DBHelper();
+    private final Basket basket = new Basket(); // Basket instance for the class
+    private Map<JCheckBox, Item> itemCheckBoxes = new HashMap<>();
     private void showCatalog() {
         contentPanel.removeAll();
-        contentPanel.setLayout(new MigLayout("wrap", "[grow]", "[]10[grow]"));
+        contentPanel.setLayout(new MigLayout("wrap", "[grow]", "[]10[]10[grow][]"));
 
+        // Category and Manufacturer Dropdowns
         List<String> categories = dbHelper.fetchCategories();
         JComboBox<String> categoryComboBox = new JComboBox<>(categories.toArray(new String[0]));
         categoryComboBox.insertItemAt("All", 0);
@@ -164,74 +185,219 @@ public class OnlineShop extends JFrame {
         manufacturerComboBox.insertItemAt("All", 0);
         manufacturerComboBox.setSelectedIndex(0);
 
-        JButton searchButton = new JButton("Search");
-        JPanel itemsDisplayPanel = new JPanel(new MigLayout("wrap")); // Dedicated for items
-        itemsDisplayPanel.setName("itemsDisplayPanel"); // Assign a name for easy identification
+        // Sorting Controls
+        JComboBox<String> sortAttributeComboBox = new JComboBox<>(new String[]{"Title", "Price"});
+        JComboBox<String> sortOrderComboBox = new JComboBox<>(new String[]{"Ascending", "Descending"});
 
-        // Add components to contentPanel
+        JButton searchButton = new JButton("Search");
+        JButton viewBasketButton = new JButton("View Basket");
+        JPanel itemsDisplayPanel = new JPanel(new MigLayout("wrap"));
+        itemsDisplayPanel.setName("itemsDisplayPanel");
+
+        // Adding Components to Layout
         contentPanel.add(new JLabel("Category: "), "split 2, span");
         contentPanel.add(categoryComboBox, "growx");
         contentPanel.add(new JLabel("Manufacturer: "), "split 2, span");
         contentPanel.add(manufacturerComboBox, "growx");
-        contentPanel.add(searchButton, "wrap");
+
+        // Sorting Controls Layout
+        contentPanel.add(new JLabel("Sort by: "), "split 2, span");
+        contentPanel.add(sortAttributeComboBox, "growx");
+        contentPanel.add(new JLabel("Order: "), "split 2, span");
+        contentPanel.add(sortOrderComboBox, "growx");
+
+        // Search and View Basket Buttons
+        contentPanel.add(searchButton, "span, split 2, growx");
+        contentPanel.add(viewBasketButton, "growx");
         contentPanel.add(itemsDisplayPanel, "grow, push");
 
+        // Action Listeners
         searchButton.addActionListener(e -> {
             String selectedCategory = (String) categoryComboBox.getSelectedItem();
             String selectedManufacturer = (String) manufacturerComboBox.getSelectedItem();
-            displayItems(selectedCategory, selectedManufacturer, itemsDisplayPanel);
+            String sortAttribute = (String) sortAttributeComboBox.getSelectedItem();
+            String sortOrder = (String) sortOrderComboBox.getSelectedItem();
+            displayItems(selectedCategory, selectedManufacturer, itemsDisplayPanel, sortAttribute, sortOrder);
         });
 
-        displayItems("All", "All", itemsDisplayPanel);
+        viewBasketButton.addActionListener(e -> showBasketDialog());
+
+        // Initial Display of Items
+        displayItems("All", "All", itemsDisplayPanel, "Title", "Ascending");
 
         pack();
     }
 
-    private void displayItems(String selectedCategory, String selectedManufacturer, JPanel itemsDisplayPanel) {
+    private void displayItems(String selectedCategory, String selectedManufacturer, JPanel itemsDisplayPanel, String sortAttribute, String sortOrder) {
         List<Item> items = dbHelper.fetchItemsByCategoryAndManufacturer(selectedCategory, selectedManufacturer);
-        itemsDisplayPanel.removeAll();
 
+        // Sort items based on the selected attribute and order
+        items.sort((item1, item2) -> {
+            int comparisonResult = 0;
+            switch (sortAttribute) {
+                case "Title":
+                    comparisonResult = item1.getTitle().compareTo(item2.getTitle());
+                    break;
+                case "Manufacturer":
+                    comparisonResult = item1.getManufacturer().compareTo(item2.getManufacturer());
+                    break;
+                case "Price":
+                    comparisonResult = Double.compare(item1.getPrice(), item2.getPrice());
+                    break;
+            }
+            return "Ascending".equals(sortOrder) ? comparisonResult : -comparisonResult;
+        });
+
+        // Clear previous items and selections
+        itemsDisplayPanel.removeAll();
+        itemCheckBoxes.clear();
+
+        // Display sorted items with checkboxes
         for (Item item : items) {
-            JLabel itemLabel = new JLabel(item.getTitle());
-            itemsDisplayPanel.add(itemLabel, "growx");
+            JCheckBox checkBox = new JCheckBox(String.format("%s - $%.2f", item.getTitle(), item.getPrice()));
+
+            // Add action listener to each checkbox
+            checkBox.addActionListener(e -> {
+                if (checkBox.isSelected()) {
+                    basket.addItem(item); // Add the item to the basket when selected
+                } else {
+                    basket.removeItem(item); // Remove the item from the basket when deselected
+                }
+            });
+
+            itemCheckBoxes.put(checkBox, item);
+            itemsDisplayPanel.add(checkBox, "growx");
         }
 
         itemsDisplayPanel.revalidate();
         itemsDisplayPanel.repaint();
-        pack(); // Ensure the JFrame is correctly sized to accommodate the new items
+        pack();
     }
+    private Customer getLoggedInCustomer() {
+        return SessionManager.getCurrentCustomer();
+    }
+    // Method to view and manage the basket
+    private void showBasket() {
+        // Get the logged-in customer
+    	Customer currentCustomer = SessionManager.getCurrentCustomer();
 
-    public List<Item> fetchItemsByCategoryAndManufacturer(String category, String manufacturer) {
-        List<Item> items = new ArrayList<>();
-        
-        String sql = "SELECT * FROM items WHERE (? = 'All' OR category = ?) AND (? = 'All' OR manufacturer = ?)";
-        
-        try (Connection conn = DBHelper.getConnection();
-
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, category);
-            pstmt.setString(2, category);
-            pstmt.setString(3, manufacturer);
-            pstmt.setString(4, manufacturer);
-
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    items.add(new Item(rs.getInt("id"), rs.getString("title"),
-                                       rs.getString("manufacturer"), rs.getDouble("price"),
-                                       rs.getString("category"), rs.getInt("quantity")));
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+        if (currentCustomer == null) {
+            JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
         }
-        return items;
+
+        JDialog basketDialog = new JDialog(this, "Your Basket", true);
+        basketDialog.setLayout(new MigLayout("wrap 2"));
+
+        if (basket.getItems().isEmpty()) {
+            JOptionPane.showMessageDialog(basketDialog, "Your basket is empty.", "Basket Empty", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        AtomicReference<Double> totalPrice = new AtomicReference<>(0.0); // Initialize total price
+
+        for (Item item : basket.getItems()) {
+            basketDialog.add(new JLabel(item.getTitle() + " - $" + item.getPrice()), "span, grow");
+            totalPrice.updateAndGet(value -> value + item.getPrice()); // Accumulate item prices for total price
+        }
+
+        JLabel totalPriceLabel = new JLabel(String.format("Total Price: $%.2f", totalPrice.get()));
+        basketDialog.add(totalPriceLabel, "span, growx");
+
+        JButton checkoutButton = new JButton("Checkout");
+        checkoutButton.addActionListener(e -> {
+            // Implement checkout logic here
+            basketDialog.setVisible(false);
+            basketDialog.dispose();
+            basket.clear(); // Optionally clear the basket after checkout
+            JOptionPane.showMessageDialog(this, "Checkout successful!");
+        });
+        basketDialog.add(checkoutButton, "span, grow");
+
+        basketDialog.pack();
+        basketDialog.setLocationRelativeTo(this);
+        basketDialog.setVisible(true);
+    }
+
+    private void showBasketDialog() {
+        // Get the logged-in customer
+    	Customer currentCustomer = SessionManager.getCurrentCustomer();
+
+        if (currentCustomer == null) {
+            JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        JDialog basketDialog = new JDialog(this, "Basket", true);
+        basketDialog.setLayout(new MigLayout("wrap 2"));
+
+        if (basket.getItems().isEmpty()) {
+            JOptionPane.showMessageDialog(basketDialog, "Your basket is empty.", "Basket Empty", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        AtomicReference<Double> totalPrice = new AtomicReference<>(0.0); // Initialize total price
+
+        for (Item item : basket.getItems()) {
+            basketDialog.add(new JLabel(item.getTitle() + " - $" + item.getPrice()), "span, grow");
+            totalPrice.updateAndGet(value -> value + item.getPrice()); // Accumulate item prices for total price
+        }
+
+        JLabel totalPriceLabel = new JLabel(String.format("Total Price: $%.2f", totalPrice.get()));
+        basketDialog.add(totalPriceLabel, "span, growx");
+
+        JButton checkoutButton = new JButton("Checkout");
+        checkoutButton.addActionListener(e -> {
+            Customer customer = getLoggedInCustomer(); // Use the method to get the logged-in customer
+            if (customer == null) {
+                JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
+                return; // Exit the method if no customer is logged in
+            }
+
+            try {
+                Date now = new Date();
+                Double total = totalPrice.get(); // Get the total price from AtomicReference
+                Order order = new Order(0, new ArrayList<>(basket.getItems()), customer, total, now);
+
+                DBHelper dbHelper = new DBHelper();
+                dbHelper.processOrder(order); // Ensure DBHelper's processOrder accepts an Order object
+
+                JOptionPane.showMessageDialog(basketDialog, "Checkout Successful!");
+                basket.clear(); // Clear the basket after checkout
+                basketDialog.dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(basketDialog, "Checkout failed: " + ex.getMessage(), "Checkout Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        basketDialog.add(checkoutButton, "span, growx");
+        basketDialog.pack();
+        basketDialog.setLocationRelativeTo(this);
+        basketDialog.setVisible(true);
     }
 
 
-	
     
-  
-    private void showItemDetails(int itemId) {
+    private void processOrder(double totalPrice) throws SQLException {
+    	
+        // Here, you need to have a way to obtain the current customer.
+        // This might be from a login session, for instance. Let's assume a getLoggedInCustomer() method for this purpose.
+        Customer currentCustomer = getLoggedInCustomer();
+
+        if (currentCustomer == null) {
+            throw new IllegalStateException("No customer logged in.");
+        }
+
+        Date now = new Date();
+        Order order = new Order(0, new ArrayList<>(basket.getItems()), currentCustomer, totalPrice, now);
+        
+        DBHelper dbHelper = new DBHelper();
+        dbHelper.processOrder(order);
+    }
+
+
+
+	private void showItemDetails(int itemId) {
         // Here, you would fetch the item details using the item ID
         // Then display those details in a new panel or dialog
         JOptionPane.showMessageDialog(this, "Showing details for item ID: " + itemId);
