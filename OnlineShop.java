@@ -123,30 +123,26 @@ public class OnlineShop extends JFrame {
         contentPanel.add(new JLabel("Admin Login"), "span, grow, wrap");
         contentPanel.add(new JLabel("Username:"));
         contentPanel.add(usernameField, "growx");
-
         contentPanel.add(new JLabel("Password:"));
         contentPanel.add(passwordField, "growx");
 
         JButton loginButton = new JButton("Login");
         loginButton.addActionListener(e1 -> {
-            String username = usernameField.getText();
-            String password = new String(passwordField.getPassword());
+        	String username = usernameField.getText();
+        	String password = new String(passwordField.getPassword());
 
-            adminLog adminLog = new adminLog();
-            boolean authenticated = adminLog.authenticateCust(username, password);
-
-            if (authenticated) {
-                // Replace with method to navigate to admin dashboard
-                navigateToAdminDashboard();
-            } else {
-                JOptionPane.showMessageDialog(this, "Admin Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
-                // Optionally, log the failed login attempt for debugging or security purposes
-                System.out.println("Failed admin login attempt with username: " + username);
-            }
+        	adminLog adminLogger = new adminLog();
+        	boolean authenticated = adminLogger.authenticateAdmin(username, password);
+        	if (authenticated) {
+        	    SessionManager.login(username, true); // true for admin
+        	    // Proceed to admin dashboard or views
+        	    navigateToAdminDashboard();
+        	} else {
+        	    JOptionPane.showMessageDialog(this, "Admin Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
+        	}
         });
 
         contentPanel.add(loginButton, "span, growx");
-
         contentPanel.revalidate();
         contentPanel.repaint();
         pack();
@@ -165,34 +161,31 @@ public class OnlineShop extends JFrame {
         contentPanel.add(new JLabel(title), "span, grow, wrap");
         contentPanel.add(new JLabel("Username:"));
         contentPanel.add(usernameField, "growx");
-
         contentPanel.add(new JLabel("Password:"));
         contentPanel.add(passwordField, "growx");
 
         JButton loginButton = new JButton("Login");
         loginButton.addActionListener(e -> {
-            customerLog customerLog = new customerLog();
-            boolean isAuthenticated = customerLog.authenticateCust(
-                usernameField.getText(), 
-                new String(passwordField.getPassword())
-            );
+        	
+        	// Inside your Customer Login ActionListener
+        	String username = usernameField.getText();
+        	String password = new String(passwordField.getPassword());
 
-            if (isAuthenticated) {
-                // Assuming you have a Customer constructor that takes minimal info
-                // Here, using username; adjust based on your actual Customer constructor
-                Customer customer = new Customer(0, usernameField.getText(), "", ""); // Dummy values for id, shippingAddress, and paymentMethod
-
-                SessionManager.login(customer);
-                JOptionPane.showMessageDialog(this, "Login Successful.");
-
-                // Transition to next part of the application
-                showCatalog();
-            } else {
-                JOptionPane.showMessageDialog(this, "Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
-            }
+        	customerLog customerLogger = new customerLog();
+        	boolean isAuthenticated = customerLogger.authenticateCust(username, password);
+        	if (isAuthenticated) {
+        	    SessionManager.login(username, false); // false for a regular user
+        	    // Proceed to show customer-specific views
+        	    showCatalog();
+        	} else {
+        	    JOptionPane.showMessageDialog(this, "Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
+        	}
         });
         contentPanel.add(loginButton, "span, growx");
+    
 
+    
+        
         if (showRegister) {
             JButton registerButton = new JButton("Register");
             registerButton.addActionListener(e -> showRegistrationForm());
@@ -203,6 +196,7 @@ public class OnlineShop extends JFrame {
         contentPanel.repaint();
         pack();
     }
+
 
    
 
@@ -314,19 +308,23 @@ public class OnlineShop extends JFrame {
         itemsDisplayPanel.repaint();
         pack();
     }
+
     private Customer getLoggedInCustomer() {
-        return SessionManager.getCurrentCustomer();
+        String currentUsername = SessionManager.getCurrentUsername();
+        if (currentUsername == null) {
+            return null; // No user is logged in
+        }
+        customerLog customerLogger = new customerLog();
+        return customerLogger.fetchCustomerDetails(currentUsername);
     }
+    
     // Method to view and manage the basket
     private void showBasket() {
-        // Get the logged-in customer
-    	Customer currentCustomer = SessionManager.getCurrentCustomer();
-
+        Customer currentCustomer = getLoggedInCustomer();
         if (currentCustomer == null) {
             JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-
         JDialog basketDialog = new JDialog(this, "Your Basket", true);
         basketDialog.setLayout(new MigLayout("wrap 2"));
 
@@ -359,16 +357,12 @@ public class OnlineShop extends JFrame {
         basketDialog.setLocationRelativeTo(this);
         basketDialog.setVisible(true);
     }
-
     private void showBasketDialog() {
-        // Get the logged-in customer
-    	Customer currentCustomer = SessionManager.getCurrentCustomer();
-
+    	Customer currentCustomer = getLoggedInCustomer();
         if (currentCustomer == null) {
             JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-
         JDialog basketDialog = new JDialog(this, "Basket", true);
         basketDialog.setLayout(new MigLayout("wrap 2"));
 
@@ -389,23 +383,14 @@ public class OnlineShop extends JFrame {
 
         JButton checkoutButton = new JButton("Checkout");
         checkoutButton.addActionListener(e -> {
-            Customer customer = getLoggedInCustomer(); // Use the method to get the logged-in customer
-            if (customer == null) {
-                JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
-                return; // Exit the method if no customer is logged in
-            }
-
             try {
                 Date now = new Date();
                 Double total = totalPrice.get(); // Get the total price from AtomicReference
-                Order order = new Order(0, new ArrayList<>(basket.getItems()), customer, total, now);
-
+                Order order = new Order(0, new ArrayList<>(basket.getItems()), currentCustomer, total, new Date());
                 DBHelper dbHelper = new DBHelper();
-                dbHelper.processOrder(order); // Ensure DBHelper's processOrder accepts an Order object
-
+                dbHelper.processOrder(order); // Use the newly created 'order' object
                 JOptionPane.showMessageDialog(basketDialog, "Checkout Successful!");
                 basket.clear(); // Clear the basket after checkout
-                basketDialog.dispose();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(basketDialog, "Checkout failed: " + ex.getMessage(), "Checkout Failed", JOptionPane.ERROR_MESSAGE);
             }
@@ -423,7 +408,6 @@ public class OnlineShop extends JFrame {
     	
         // Here, you need to have a way to obtain the current customer.
         // This might be from a login session, for instance. Let's assume a getLoggedInCustomer() method for this purpose.
-        Customer currentCustomer = getLoggedInCustomer();
 
         if (currentCustomer == null) {
             throw new IllegalStateException("No customer logged in.");

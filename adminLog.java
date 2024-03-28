@@ -10,7 +10,7 @@ public class  adminLog {
     private static final String USERNAME = "root";
     private static final String PASSWORD = "root";
 
-    public boolean authenticateCust(String username, String password) {
+    public boolean authenticateAdmin(String username, String password) {
         String sql = "SELECT COUNT(*) FROM admin WHERE username = ? AND password = ?";
         
         try (

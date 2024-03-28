@@ -16,10 +16,6 @@ public class SessionManager {
         return currentUsername;
     }
 
-    public static boolean isLoggedIn() {
-        return currentUsername != null;
-    }
-
     public static boolean isAdmin() {
         return isAdmin;
     }

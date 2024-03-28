@@ -51,5 +51,25 @@ public class  customerLog {
         }
         return null; // User not found or error
     }
+    public Customer fetchCustomerDetails(String username) {
+        String sql = "SELECT id, username, password, shipping_address, payment_method FROM CustomerShop WHERE username = ?";
+        try (Connection connection = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setString(1, username);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String user = resultSet.getString("username");
+                String shippingAddress = resultSet.getString("shipping_address"); // If the column exists
+                String paymentMethod = resultSet.getString("payment_method");
+                // Return a new Customer object, adjust constructor as needed
+                return new Customer(id, user, shippingAddress,  paymentMethod);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null; // User not found or error
+    }
+
     
 }
