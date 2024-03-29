@@ -64,6 +64,32 @@ public class DBHelper {
             System.out.println(e.getMessage());
         }
     }
+    public List<Item> searchItems(String query) throws SQLException {
+        List<Item> items = new ArrayList<>();
+        String sql = "SELECT * FROM items WHERE title LIKE ? OR manufacturer LIKE ? OR category LIKE ?";
+        
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            String searchQuery = "%" + query + "%";
+            pstmt.setString(1, searchQuery);
+            pstmt.setString(2, searchQuery);
+            pstmt.setString(3, searchQuery);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    items.add(new Item(
+                            rs.getInt("id"),
+                            rs.getString("title"),
+                            rs.getString("manufacturer"),
+                            rs.getDouble("price"),
+                            rs.getString("category"),
+                            rs.getInt("quantity")));
+                }
+            }
+        }
+        return items;
+    }
+
 
     public void deleteItem(int id) {
         String sql = "DELETE FROM items WHERE id = ?";
@@ -218,14 +244,16 @@ public class DBHelper {
 
 
 
-    private void updateItemStock(Connection conn, int itemId, int quantity) throws SQLException {
-        String sql = "UPDATE items SET quantity = quantity + ? WHERE id = ?";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    public void updateItemStock(int itemId, int quantity) throws SQLException {
+        String sql = "UPDATE items SET quantity = ? WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, quantity);
             pstmt.setInt(2, itemId);
             pstmt.executeUpdate();
         }
     }
+
     public void updateItem(int itemId, String title, String manufacturer, double price, String category, int quantity, int adminId) {
         String sql = "UPDATE items SET title = ?, manufacturer = ?, price = ?, category = ?, quantity = ?, last_updated_by_admin_id = ? WHERE id = ?";
         try (Connection conn = getConnection();
@@ -256,6 +284,26 @@ public class DBHelper {
             pstmt.executeUpdate();
         }
 
+    }
+    public List<Item> fetchAllItems() throws SQLException {
+        List<Item> items = new ArrayList<>();
+        String sql = "SELECT * FROM items ORDER BY title"; // Example SQL, adjust as needed
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                items.add(new Item(
+                        rs.getInt("id"),
+                        rs.getString("title"),
+                        rs.getString("manufacturer"),
+                        rs.getDouble("price"),
+                        rs.getString("category"),
+                        rs.getInt("quantity")));
+            }
+        }
+        return items;
     }
 }
 
