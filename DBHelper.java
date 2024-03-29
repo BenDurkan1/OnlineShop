@@ -243,8 +243,20 @@ public class DBHelper {
         }
     }
 
- 
+    public void insertReview(Review review) throws SQLException {
+        String sql = "INSERT INTO reviews (item_id, customer_id, rating, comment) VALUES (?, ?, ?, ?)";
 
+        try (Connection conn = this.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, review.getItem().getId());
+            pstmt.setInt(2, review.getCustomer().getId());
+            pstmt.setInt(3, review.getRating());
+            pstmt.setString(4, review.getComment());
+
+            pstmt.executeUpdate();
+        }
+
+    }
 }
 
 

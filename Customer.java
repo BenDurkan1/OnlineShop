@@ -53,5 +53,27 @@ public class Customer {
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
+    public static boolean validateCardDetails(String cardNumber, String cvc, String expiryDate) {
+        // Validate card number length
+        if (cardNumber == null || cardNumber.length() != 16 || !cardNumber.matches("\\d{16}")) {
+            System.out.println("Invalid card number. Must be 16 digits.");
+            return false;
+        }
+        
+        // Validate CVC length
+        if (cvc == null || cvc.length() != 3 || !cvc.matches("\\d{3}")) {
+            System.out.println("Invalid CVC. Must be 3 digits.");
+            return false;
+        }
+        
+        // Validate expiry date format
+        if (expiryDate == null || !expiryDate.matches("\\d{2}/\\d{2}")) {
+            System.out.println("Invalid expiry date. Must be in MM/YY format.");
+            return false;
+        }
+
+        // Additional validation can be done here, such as checking if the card is expired
+        return true;
+    }
     
 }

@@ -1,6 +1,7 @@
 import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
 
+import java.awt.Component;  // Add this line
 
 import java.awt.event.ActionEvent;
 import java.sql.Connection;
@@ -14,6 +15,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class OnlineShop extends JFrame {
@@ -357,8 +359,9 @@ public class OnlineShop extends JFrame {
         basketDialog.setLocationRelativeTo(this);
         basketDialog.setVisible(true);
     }
+   
     private void showBasketDialog() {
-    	Customer currentCustomer = getLoggedInCustomer();
+        Customer currentCustomer = getLoggedInCustomer();
         if (currentCustomer == null) {
             JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
@@ -371,11 +374,11 @@ public class OnlineShop extends JFrame {
             return;
         }
 
-        AtomicReference<Double> totalPrice = new AtomicReference<>(0.0); // Initialize total price
+        AtomicReference<Double> totalPrice = new AtomicReference<>(0.0);
 
         for (Item item : basket.getItems()) {
             basketDialog.add(new JLabel(item.getTitle() + " - $" + item.getPrice()), "span, grow");
-            totalPrice.updateAndGet(value -> value + item.getPrice()); // Accumulate item prices for total price
+            totalPrice.updateAndGet(value -> value + item.getPrice());
         }
 
         JLabel totalPriceLabel = new JLabel(String.format("Total Price: $%.2f", totalPrice.get()));
@@ -383,17 +386,8 @@ public class OnlineShop extends JFrame {
 
         JButton checkoutButton = new JButton("Checkout");
         checkoutButton.addActionListener(e -> {
-            try {
-                Date now = new Date();
-                Double total = totalPrice.get(); // Get the total price from AtomicReference
-                Order order = new Order(0, new ArrayList<>(basket.getItems()), currentCustomer, total, new Date());
-                DBHelper dbHelper = new DBHelper();
-                dbHelper.processOrder(order); // Use the newly created 'order' object
-                JOptionPane.showMessageDialog(basketDialog, "Checkout Successful!");
-                basket.clear(); // Clear the basket after checkout
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(basketDialog, "Checkout failed: " + ex.getMessage(), "Checkout Failed", JOptionPane.ERROR_MESSAGE);
-            }
+            // Show the card details dialog
+            showCardDetailsDialog(totalPrice.get(), basketDialog, basket.getItems());
         });
 
         basketDialog.add(checkoutButton, "span, growx");
@@ -402,22 +396,141 @@ public class OnlineShop extends JFrame {
         basketDialog.setVisible(true);
     }
 
+    private void showCardDetailsDialog(double totalPrice, JDialog basketDialog, List<Item> items) {
+        JDialog cardDetailsDialog = new JDialog(this, "Card Details", true);
+        cardDetailsDialog.setLayout(new MigLayout("wrap 2", "[align right]10[align left, grow]", "[]10[]"));
+
+        JTextField cardNumberField = new JTextField(20);
+        JTextField expiryDateField = new JTextField(5);
+        JTextField cvcField = new JTextField(3);
+
+        cardDetailsDialog.add(new JLabel("Card Number:"));
+        cardDetailsDialog.add(cardNumberField, "growx");
+        cardDetailsDialog.add(new JLabel("Expiry Date (MM/YY):"));
+        cardDetailsDialog.add(expiryDateField, "growx");
+        cardDetailsDialog.add(new JLabel("CVC:"));
+        cardDetailsDialog.add(cvcField, "growx");
+
+        JButton submitButton = new JButton("Submit");
+        submitButton.addActionListener(e -> {
+            if (!validateCardDetails(cardNumberField.getText(), expiryDateField.getText(), cvcField.getText())) {
+                JOptionPane.showMessageDialog(cardDetailsDialog, "Invalid card details. Please check your input.", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            Customer currentCustomer = getLoggedInCustomer();
+            if (currentCustomer == null) {
+            	JOptionPane.showMessageDialog(cardDetailsDialog, "Error: No customer is logged in.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            try {
+                Order newOrder = new Order(0, items, currentCustomer, totalPrice, new Date());
+                DBHelper dbHelper = new DBHelper();
+                dbHelper.processOrder(newOrder); // Make sure this is the DBHelper method
+                JOptionPane.showMessageDialog(cardDetailsDialog, "Checkout Successful!");
+                basket.clear(); // Clear the shopping cart
+                basketDialog.dispose(); // Close the shopping cart dialog
+                cardDetailsDialog.dispose(); // Close the card details dialog
+                showReviewDialog(items);
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(cardDetailsDialog, "Checkout failed: " + ex.getMessage(), "Checkout Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        cardDetailsDialog.add(submitButton, "span, growx");
+        cardDetailsDialog.pack();
+        cardDetailsDialog.setLocationRelativeTo(this);
+        cardDetailsDialog.setVisible(true);
+    }
+
+    private boolean validateCardDetails(String cardNumber, String expiryDate, String cvc) {
+        boolean isValidCardNumber = cardNumber.matches("\\d{16}");
+        boolean isValidExpiryDate = expiryDate.matches("\\d{2}/\\d{2}"); // Simplified validation
+        boolean isValidCvc = cvc.matches("\\d{3}");
+
+        return isValidCardNumber && isValidExpiryDate && isValidCvc;
+    }
 
     
-    private void processOrder(double totalPrice) throws SQLException {
-    	
-        // Here, you need to have a way to obtain the current customer.
-        // This might be from a login session, for instance. Let's assume a getLoggedInCustomer() method for this purpose.
-
+    private void processOrder() throws SQLException {
         if (currentCustomer == null) {
             throw new IllegalStateException("No customer logged in.");
         }
 
+        double totalPrice = basket.getTotalPrice(); // Now this line should work
+        List<Item> items = basket.getItems();
+        
         Date now = new Date();
-        Order order = new Order(0, new ArrayList<>(basket.getItems()), currentCustomer, totalPrice, now);
+        Order order = new Order(0, items, currentCustomer, totalPrice, now);
         
         DBHelper dbHelper = new DBHelper();
         dbHelper.processOrder(order);
+        
+        basket.clear(); // Clears the basket after order processing
+        // Update UI accordingly
+    }
+
+    private void showReviewDialog(List<Item> purchasedItems) {
+        // Ensure a customer is logged in before proceeding
+        Customer currentCustomer = getLoggedInCustomer();
+        if (currentCustomer == null) {
+            JOptionPane.showMessageDialog(this, "You must be logged in to leave a review.", "Not Logged In", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        JDialog reviewDialog = new JDialog(this, "Leave a Review", true);
+        reviewDialog.setLayout(new MigLayout("wrap 2", "[align right]10[align left, grow]", "[]10[]"));
+
+        // Dropdown for purchased items
+        JComboBox<Item> itemComboBox = new JComboBox<>(new Vector<>(purchasedItems));
+        itemComboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Item) {
+                    setText(((Item) value).getTitle());
+                }
+                return this;
+            }
+        });
+
+        // Rating input
+        JComboBox<Integer> ratingComboBox = new JComboBox<>(new Integer[]{1, 2, 3, 4, 5});
+        
+        // Comment input
+        JTextField commentField = new JTextField(20);
+
+        // Adding components to the dialog
+        reviewDialog.add(new JLabel("Item:"));
+        reviewDialog.add(itemComboBox, "growx");
+        reviewDialog.add(new JLabel("Rating:"));
+        reviewDialog.add(ratingComboBox, "growx");
+        reviewDialog.add(new JLabel("Comment:"));
+        reviewDialog.add(commentField, "growx");
+
+        JButton submitButton = new JButton("Submit Review");
+        submitButton.addActionListener(e -> {
+            Item selectedItem = (Item) itemComboBox.getSelectedItem();
+            int rating = (Integer) ratingComboBox.getSelectedItem();
+            String comment = commentField.getText();
+            Review review = new Review(0, selectedItem, currentCustomer, rating, comment);
+            
+            try {
+                // Assuming DBHelper has a method to insert a review
+                new DBHelper().insertReview(review);
+                JOptionPane.showMessageDialog(reviewDialog, "Thank you for your review!", "Review Submitted", JOptionPane.INFORMATION_MESSAGE);
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(reviewDialog, "Failed to submit review: " + ex.getMessage(), "Review Submission Error", JOptionPane.ERROR_MESSAGE);
+            }
+
+            reviewDialog.dispose();
+        });
+
+        reviewDialog.add(submitButton, "span, growx");
+        reviewDialog.pack();
+        reviewDialog.setLocationRelativeTo(this);
+        reviewDialog.setVisible(true);
     }
 
 
