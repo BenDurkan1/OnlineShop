@@ -72,8 +72,8 @@ public class Customer {
             return false;
         }
 
-        // Additional validation can be done here, such as checking if the card is expired
         return true;
     }
+  
     
 }

@@ -8,7 +8,6 @@ public class DBHelper {
     private static final String USERNAME = "root";
     private static final String PASSWORD = "root";
 
-    // Make getConnection a static method for reuse
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
     }
@@ -48,7 +47,6 @@ public class DBHelper {
     }
 
     public void updateItem(int id, String title, String manufacturer, double price, String category, int quantity) {
-        // Removed the extra comma before WHERE
         String sql = "UPDATE items SET title = ?, manufacturer = ?, price = ?, category = ?, quantity = ? WHERE id = ?";
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -90,6 +88,14 @@ public class DBHelper {
         return items;
     }
 
+    public void correctNegativeItemQuantities() throws SQLException {
+        String sql = "UPDATE items SET quantity = 0 WHERE quantity < 0";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            int affectedRows = pstmt.executeUpdate();
+            System.out.println("Corrected " + affectedRows + " items with negative quantities.");
+        }
+    }
 
     public void deleteItem(int id) {
         String sql = "DELETE FROM items WHERE id = ?";
@@ -125,7 +131,7 @@ public class DBHelper {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace(); // Consider replacing with more robust error handling
+            e.printStackTrace(); 
         }
         return items;
     }
@@ -191,25 +197,23 @@ public class DBHelper {
         Connection conn = null;
         try {
             conn = getConnection();
-            conn.setAutoCommit(false); // Start transaction
+            conn.setAutoCommit(false); 
 
-            // Insert the order into the orders table and get the generated order ID
             int orderId = insertOrder(conn, order);
 
-            // Insert each item into the order_items table with the generated order ID
             for (Item item : order.getItems()) {
                 insertOrderItem(conn, orderId, item.getId(), item.getQuantity());
             }
 
-            conn.commit(); // Commit the transaction
+            conn.commit(); 
         } catch (SQLException e) {
             if (conn != null) {
                 conn.rollback(); // Rollback the transaction on error
             }
-            throw e; // Re-throw the exception to be handled elsewhere
+            throw e; 
         } finally {
             if (conn != null) {
-                conn.setAutoCommit(true); // Reset auto-commit to true
+                conn.setAutoCommit(true); 
             }
         }
     }
@@ -271,23 +275,25 @@ public class DBHelper {
         }
     }
 
+    
     public void insertReview(Review review) throws SQLException {
         String sql = "INSERT INTO reviews (item_id, customer_id, rating, comment) VALUES (?, ?, ?, ?)";
-
         try (Connection conn = this.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, review.getItem().getId());
-            pstmt.setInt(2, review.getCustomer().getId());
+            pstmt.setInt(1, review.getItem().getId()); // Get ID from Item object
+            pstmt.setInt(2, review.getCustomer().getId()); // Get ID from Customer object
             pstmt.setInt(3, review.getRating());
             pstmt.setString(4, review.getComment());
-
             pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
         }
-
     }
+
+
     public List<Item> fetchAllItems() throws SQLException {
         List<Item> items = new ArrayList<>();
-        String sql = "SELECT * FROM items ORDER BY title"; // Example SQL, adjust as needed
+        String sql = "SELECT * FROM items ORDER BY title"; 
 
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement();
@@ -305,6 +311,116 @@ public class DBHelper {
         }
         return items;
     }
+    
+    public List<Customer> getCustomerDetails() throws SQLException {
+        List<Customer> customers = new ArrayList<>();
+        String sql = "SELECT id, username, shipping_address, payment_method FROM customershop";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+           
+                Customer customer = new Customer(
+                    rs.getInt("id"),
+                    rs.getString("username"),
+                    rs.getString("shipping_address"),
+                    rs.getString("payment_method")
+                );
+                // Since password is not fetched, no need to set it here
+                customers.add(customer);
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return customers;
+    }
+
+    
+    public List<Order> getCustomerOrders(int customerId) throws SQLException {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM orders WHERE customer_id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, customerId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Order order = new Order(
+                        rs.getInt("id"),
+                        customerId,
+                        rs.getDouble("total_price"),
+                        rs.getTimestamp("order_date")
+                    );
+                    orders.add(order);
+                }
+            }
+        }
+        return orders;
+    }
+    public List<Review> getCustomerReviews(int customerId) throws SQLException {
+        List<Review> reviews = new ArrayList<>();
+        String sql = "SELECT * FROM reviews WHERE customer_id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, customerId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    // Fetch item and customer objects using their IDs
+                    int reviewId = rs.getInt("id");
+                    int itemId = rs.getInt("item_id");
+                    int rating = rs.getInt("rating");
+                    String comment = rs.getString("comment");
+
+                    Item item = fetchItemById(itemId); 
+                    Customer customer = fetchCustomerById(customerId);
+
+                    // Create Review object and add it to the list
+                    Review review = new Review(reviewId, item, customer, rating, comment);
+                    reviews.add(review);
+                }
+            }
+        }
+        return reviews;
+    }
+    public Item fetchItemById(int itemId) throws SQLException {
+        String sql = "SELECT * FROM items WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, itemId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    String title = rs.getString("title");
+                    String manufacturer = rs.getString("manufacturer");
+                    double price = rs.getDouble("price");
+                    String category = rs.getString("category");
+                    int quantity = rs.getInt("quantity");
+
+                    // Create and return the Item object
+                    return new Item(itemId, title, manufacturer, price, category, quantity);
+                }
+            }
+        }
+        return null; 
+    }
+
+    public Customer fetchCustomerById(int customerId) throws SQLException {
+        String sql = "SELECT * FROM customershop WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, customerId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    String username = rs.getString("username");
+                    String shippingAddress = rs.getString("shipping_address");
+                    String paymentMethod = rs.getString("payment_method");
+
+                    return new Customer(customerId, username, shippingAddress, paymentMethod);
+                }
+            }
+        }
+        return null; 
+    }
+
+
 }
 
 

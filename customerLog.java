@@ -17,14 +17,11 @@ public class  customerLog {
             Connection connection = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
             PreparedStatement preparedStatement = connection.prepareStatement(sql)
         ) {
-            // Setting parameters for the prepared statement
             preparedStatement.setString(1, username);
             preparedStatement.setString(2, password);
             
-            // Executing the SQL query to retrieve customer credentials
             ResultSet resultSet = preparedStatement.executeQuery();
             
-            // If a record with matching credentials is found, return true
             if (resultSet.next() && resultSet.getInt(1) > 0) {
                 return true; // Authentication successful
             }
@@ -60,7 +57,7 @@ public class  customerLog {
             if (resultSet.next()) {
                 int id = resultSet.getInt("id");
                 String user = resultSet.getString("username");
-                String shippingAddress = resultSet.getString("shipping_address"); // If the column exists
+                String shippingAddress = resultSet.getString("shipping_address"); 
                 String paymentMethod = resultSet.getString("payment_method");
                 // Return a new Customer object, adjust constructor as needed
                 return new Customer(id, user, shippingAddress,  paymentMethod);
@@ -68,7 +65,7 @@ public class  customerLog {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return null; // User not found or error
+        return null; 
     }
 
     

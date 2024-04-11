@@ -1,105 +1,309 @@
 import javax.swing.*;
 import net.miginfocom.swing.MigLayout;
 import java.awt.event.ActionEvent;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class AdminDashboard extends JFrame {
-    private JPanel contentPanel;
-    private DBHelper dbHelper = new DBHelper(); // Assuming default constructor is available
+	 private JPanel contentPanel;
+	    private JPanel controlPanel; // Panel for navigation buttons
+	    private DBHelper dbHelper = new DBHelper();
+	    public AdminDashboard() {
+	        setTitle("Admin Dashboard");
+	        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+	        setLayout(new MigLayout("fill", "", "[]10[]push[]"));
 
-    public AdminDashboard() {
-        setTitle("Admin Dashboard");
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setLayout(new MigLayout("fill", "", "[]push[]"));
+	        setupControlPanel(); 
 
-        contentPanel = new JPanel(new MigLayout("wrap 4", "[grow]10[grow]10[grow]10[grow]", "[]"));
-        add(contentPanel, "grow, push");
+	        contentPanel = new JPanel(new MigLayout("wrap 4", "[grow]10[grow]10[grow]10[grow]", "[]"));
+	        add(contentPanel, "grow, push");
 
-        // Call viewStockItems directly to display items on dashboard open
-        viewStockItems();
+	        try {
+	            dbHelper.correctNegativeItemQuantities();
+	        } catch (SQLException ex) {
+	            JOptionPane.showMessageDialog(this, "Error correcting item quantities: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+	        }
 
-        pack();
-        setLocationRelativeTo(null);
-        setVisible(true);
-    }
+	        viewStockItems(); 
 
-    private void viewStockItems() {
-        contentPanel.removeAll();
-        try {
-            List<Item> items = dbHelper.fetchAllItems();
-            for (Item item : items) {
-                // Display all details for each item
-                String itemDetails = String.format("<html>Title: %s<br>Manufacturer: %s<br>Price: $%.2f<br>Category: %s<br>Quantity: %d</html>",
-                        item.getTitle(), item.getManufacturer(), item.getPrice(), item.getCategory(), item.getQuantity());
-                contentPanel.add(new JLabel(itemDetails));
-            }
-        } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "Error fetching stock items: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
-            ex.printStackTrace();
-        }
+	        pack();
+	        setLocationRelativeTo(null);
+	        setVisible(true);
+	    }
 
-        // Optionally add a refresh button to allow admin to refresh the item list manually
-        JButton refreshButton = new JButton("Refresh");
-        refreshButton.addActionListener(e -> viewStockItems());
-        contentPanel.add(refreshButton, "span, growx");
+	    private void setupControlPanel() {
+	        controlPanel = new JPanel(new MigLayout("wrap 4", "[grow]10[grow]10[grow]10[grow]", "[]"));
 
-        contentPanel.revalidate();
-        contentPanel.repaint();
-    }
-    
- // Assuming DBHelper has methods like `searchItems(String query)` and `updateItemStock(int itemId, int newQuantity)`
+	        JButton viewItemsButton = new JButton("View Items");
+	        viewItemsButton.addActionListener(e -> viewStockItems());
+	        controlPanel.add(viewItemsButton, "growx");
 
-    private void setupSearchAndUpdateUI() {
-        contentPanel.removeAll();
-        contentPanel.setLayout(new MigLayout("wrap 2", "[grow]10[grow]", "[]10[]"));
-        
-        // Search field and button
-        JTextField searchField = new JTextField(20);
-        JButton searchButton = new JButton("Search");
-        searchButton.addActionListener(e -> viewFilteredStockItems(searchField.getText()));
-        contentPanel.add(searchField, "grow");
-        contentPanel.add(searchButton, "wrap");
-        
-        viewFilteredStockItems(""); // Initially display all items
-    }
+	        JButton addButton = new JButton("Add New Item");
+	        addButton.addActionListener(e -> showAddItemForm());
+	        controlPanel.add(addButton, "growx");
+
+	        JButton manageInventoryButton = new JButton("Manage Inventory");
+	        manageInventoryButton.addActionListener(e -> setupSearchAndUpdateUI());
+	        controlPanel.add(manageInventoryButton, "growx");
+	        
+	        JButton viewCustomerDetailsButton = new JButton("View Customer Details");
+	        viewCustomerDetailsButton.addActionListener(e -> viewCustomerDetails());
+	        controlPanel.add(viewCustomerDetailsButton, "growx");
+
+	        add(controlPanel, "dock north"); // Place the control panel at the top
+	    }
+	    private void viewCustomerDetails() {
+	        System.out.println("Viewing customer details");
+	        contentPanel.removeAll(); // Clear the previous view
+
+	        List<Customer> customers;
+	        try {
+	            customers = dbHelper.getCustomerDetails();
+	            for (Customer customer : customers) {
+	                JPanel customerPanel = new JPanel(new MigLayout("wrap 3", "[grow]10[grow]10[grow]", "[]"));
+	                String customerDetails = String.format(
+	                    "<html>Username: %s<br>Shipping Address: %s<br>Payment Method: %s</html>",
+	                    customer.getUsername(), customer.getShippingAddress(), customer.getPaymentMethod()
+	                );
+	                customerPanel.add(new JLabel(customerDetails));
+
+	                // View Orders Button
+	                JButton viewOrdersButton = new JButton("View Orders");
+	                viewOrdersButton.addActionListener(e -> viewCustomerOrders(customer.getId())); 
+	                customerPanel.add(viewOrdersButton, "growx");
+
+	                // View Reviews Button
+	                JButton viewReviewsButton = new JButton("View Reviews");
+	             viewReviewsButton.addActionListener(e -> viewCustomerReviews(customer.getId())); 
+	                customerPanel.add(viewReviewsButton, "growx");
+
+	                contentPanel.add(customerPanel);
+	            }
+	        } catch (SQLException ex) {
+	            JOptionPane.showMessageDialog(this, "Error fetching customer details: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+	            ex.printStackTrace();
+	        }
+	        refreshContentPanel();
+	    }
+
+	    private void viewCustomerOrders(int customerId) {
+	        contentPanel.removeAll(); 
+
+	        try {
+	            List<Order> orders = dbHelper.getCustomerOrders(customerId);
+	            if (orders.isEmpty()) {
+	                contentPanel.add(new JLabel("No orders found for this customer."));
+	            } else {
+	                // Iterate over each order and add details to pael
+	                for (Order order : orders) {
+	                    String orderDetails = String.format(
+	                        "<html>Order ID: %d<br>Total Price: $%.2f<br>Order Date: %s</html>",
+	                        order.getId(), order.getTotalPrice(), order.getDate().toString()
+	                    );
+	                    contentPanel.add(new JLabel(orderDetails), "wrap");
+	                }
+	            }
+	        } catch (SQLException ex) {
+	            JOptionPane.showMessageDialog(this, "Error fetching customer orders: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+	            ex.printStackTrace();
+	        }
+	        refreshContentPanel();
+	    }
+
+
+	    private void viewCustomerReviews(int customerId) {
+	        contentPanel.removeAll(); // Clear the previous view
+
+	        try {
+	            List<Review> reviews = dbHelper.getCustomerReviews(customerId);
+	            if (reviews.isEmpty()) {
+	                contentPanel.add(new JLabel("No reviews found for this customer."));
+	            } else {
+	                for (Review review : reviews) {
+	                    // Item associated with the review
+	                    Item item = review.getItem();
+
+	                    String reviewDetails = String.format(
+	                        "<html>Item: %s<br>Rating: %d<br>Comment: %s</html>",
+	                        item.getTitle(), review.getRating(), review.getComment()
+	                    );
+	                    contentPanel.add(new JLabel(reviewDetails), "wrap");
+	                }
+	            }
+	        } catch (SQLException ex) {
+	            JOptionPane.showMessageDialog(this, "Error fetching customer reviews: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+	            ex.printStackTrace();
+	        } catch (Exception e) {
+	            JOptionPane.showMessageDialog(this, "An unexpected error occurred: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+	            e.printStackTrace();
+	        }
+	        refreshContentPanel();
+	    }
+
+
+
+
+	    private void viewStockItems() {
+	        System.out.println("Viewing all stock items");
+	        contentPanel.removeAll(); 
+	        List<Item> items = new ArrayList<>();
+	        try {
+	            items = dbHelper.fetchAllItems();
+	            System.out.println("Fetched items: " + items.size());
+	            for (Item item : items) {
+	                String itemDetails = String.format(
+	                    "<html>Title: %s<br>Manufacturer: %s<br>Price: $%.2f<br>Category: %s<br>Quantity: %d</html>",
+	                    item.getTitle(), item.getManufacturer(), item.getPrice(), item.getCategory(), item.getQuantity()
+	                );
+	                contentPanel.add(new JLabel(itemDetails));
+	            }
+	        } catch (SQLException ex) {
+	            JOptionPane.showMessageDialog(this, "Error fetching stock items: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+	            ex.printStackTrace();
+	        }
+	        refreshContentPanel();
+	    }
+	    private void refreshContentPanel() {
+	        contentPanel.revalidate();
+	        contentPanel.repaint();
+	        System.out.println("Content panel refreshed");
+	    }
+	    private void setupSearchAndUpdateUI() {
+	        contentPanel.removeAll();
+	        contentPanel.setLayout(new MigLayout("wrap 1", "[grow]", "[]10[]push[]"));
+
+	        // Search field and button
+	        JTextField searchField = new JTextField(20);
+	        JButton searchButton = new JButton("Search");
+	        searchButton.addActionListener(e -> {
+	            String query = searchField.getText();
+	            viewFilteredStockItems(query);
+	        });
+
+	        JPanel searchPanel = new JPanel(new MigLayout("wrap 2", "[grow]10[]", "[]"));
+	        searchPanel.add(searchField, "grow");
+	        searchPanel.add(searchButton);
+
+	        JPanel searchAndItemsPanel = new JPanel(new MigLayout("wrap 1", "[grow]", "[]10[]push[]"));
+	        searchAndItemsPanel.add(searchPanel, "grow, wrap");
+
+	        JPanel itemsPanel = new JPanel(new MigLayout("wrap 4", "[grow]10[grow]10[grow]10[grow]", "[]"));
+	        JScrollPane scrollPane = new JScrollPane(itemsPanel);
+	        searchAndItemsPanel.add(scrollPane, "grow, push");
+
+	        // Viewport view of the scroll pane
+	        scrollPane.setViewportView(itemsPanel);
+
+	        contentPanel.add(searchAndItemsPanel, "grow, push");
+
+	        // Display all items
+	        viewFilteredStockItems("");
+	    }
+
 
     private void viewFilteredStockItems(String query) {
-        JPanel itemsPanel = new JPanel(new MigLayout("wrap 4", "[grow]10[grow]10[grow]10[grow]", "[]"));
-        
+        System.out.println("Filtering stock items with query: " + query);
+        contentPanel.removeAll(); 
+        List<Item> items = new ArrayList<>();
         try {
-            List<Item> items = query.isEmpty() ? dbHelper.fetchAllItems() : dbHelper.searchItems(query);
-            
-            for (Item item : items) {
-                String itemDetails = String.format("<html>Title: %s<br>Manufacturer: %s<br>Price: $%.2f<br>Category: %s<br>Quantity: </html>",
-                    item.getTitle(), item.getManufacturer(), item.getPrice(), item.getCategory());
-                JLabel itemLabel = new JLabel(itemDetails);
-                
-                JTextField quantityField = new JTextField(String.valueOf(item.getQuantity()), 5);
-                JButton updateButton = new JButton("Update");
-                updateButton.addActionListener(e -> {
-                    try {
-                        int newQuantity = Integer.parseInt(quantityField.getText());
-                        dbHelper.updateItemStock(item.getId(), newQuantity);
-                        JOptionPane.showMessageDialog(null, "Stock updated successfully!");
-                        viewFilteredStockItems(query); // Refresh the view
-                    } catch (NumberFormatException | SQLException ex) {
-                        JOptionPane.showMessageDialog(null, "Error updating stock: " + ex.getMessage());
-                    }
-                });
-                
-                itemsPanel.add(itemLabel);
-                itemsPanel.add(quantityField);
-                itemsPanel.add(updateButton);
-            }
+            items = dbHelper.searchItems(query);
+            System.out.println("Fetched filtered items: " + items.size()); 
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(null, "Error fetching items: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, "Error fetching filtered items: " + ex.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+            return; 
         }
-        
+
+        JPanel itemsPanel = new JPanel(new MigLayout("wrap 4", "[grow]10[grow]10[grow]10[grow]", "[]"));
+
+        for (Item item : items) {
+            String itemDetails = String.format("<html>Title: %s<br>Manufacturer: %s<br>Price: $%.2f<br>Category: %s<br>Quantity: %d</html>",
+                item.getTitle(), item.getManufacturer(), item.getPrice(), item.getCategory(), item.getQuantity());
+            JLabel itemLabel = new JLabel(itemDetails);
+
+            JTextField quantityField = new JTextField("0", 5); // Set text to 0
+            JButton updateButton = new JButton("Update To");
+            updateButton.addActionListener(e -> {
+                try {
+                    int newQuantity = Integer.parseInt(quantityField.getText());
+                    if (newQuantity <= 0) {
+                        JOptionPane.showMessageDialog(null, "Quantity must be a positive number greater than zero.");
+                        return; 
+                    }
+                    dbHelper.updateItemStock(item.getId(), newQuantity);
+                    JOptionPane.showMessageDialog(null, "Stock updated successfully!");
+                    viewFilteredStockItems(query); // Refresh the view
+                } catch (NumberFormatException | SQLException ex) {
+                    JOptionPane.showMessageDialog(null, "Error updating stock: " + ex.getMessage());
+                }
+            });
+            
+            JButton deleteButton = new JButton("Delete Item");
+            deleteButton.addActionListener(e -> {
+                dbHelper.deleteItem(item.getId());
+                JOptionPane.showMessageDialog(null, "Item deleted successfully!");
+                viewFilteredStockItems(query); 
+            });
+
+            
+            itemsPanel.add(itemLabel);
+            itemsPanel.add(quantityField);
+            itemsPanel.add(updateButton);
+            itemsPanel.add(deleteButton); 
+        }
+
         JScrollPane scrollPane = new JScrollPane(itemsPanel);
         contentPanel.add(scrollPane, "push, grow, span");
-        contentPanel.revalidate();
-        contentPanel.repaint();
+        refreshContentPanel();
+    }
+
+  
+    private void showAddItemForm() {
+        JDialog addItemDialog = new JDialog(this, "Add New Item", true);
+        addItemDialog.setLayout(new MigLayout("wrap 2", "[align right][align left, grow]", "[]10[]"));
+
+        JTextField titleField = new JTextField(20);
+        JTextField manufacturerField = new JTextField(20);
+        JTextField priceField = new JTextField(20);
+        JTextField categoryField = new JTextField(20);
+        JTextField quantityField = new JTextField(20);
+
+        addItemDialog.add(new JLabel("Title:"));
+        addItemDialog.add(titleField);
+        addItemDialog.add(new JLabel("Manufacturer:"));
+        addItemDialog.add(manufacturerField);
+        addItemDialog.add(new JLabel("Price:"));
+        addItemDialog.add(priceField);
+        addItemDialog.add(new JLabel("Category:"));
+        addItemDialog.add(categoryField);
+        addItemDialog.add(new JLabel("Quantity:"));
+        addItemDialog.add(quantityField);
+
+        JButton submitButton = new JButton("Add Item");
+        submitButton.addActionListener(e -> {
+            try {
+                String title = titleField.getText();
+                String manufacturer = manufacturerField.getText();
+                double price = Double.parseDouble(priceField.getText());
+                String category = categoryField.getText();
+                int quantity = Integer.parseInt(quantityField.getText());
+
+                dbHelper.insertItem(title, manufacturer, price, category, quantity);
+                JOptionPane.showMessageDialog(addItemDialog, "Item added successfully.");
+                addItemDialog.dispose();
+                viewStockItems(); 
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(addItemDialog, "Error adding item: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        addItemDialog.add(submitButton, "span, growx");
+        addItemDialog.pack();
+        addItemDialog.setLocationRelativeTo(this);
+        addItemDialog.setVisible(true);
     }
 
 

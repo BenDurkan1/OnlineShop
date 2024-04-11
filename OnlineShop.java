@@ -1,7 +1,7 @@
 import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
 
-import java.awt.Component;  // Add this line
+import java.awt.Component; 
 
 import java.awt.event.ActionEvent;
 import java.sql.Connection;
@@ -19,10 +19,9 @@ import java.util.Vector;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class OnlineShop extends JFrame {
-    private JPanel contentPanel; // Panel to dynamically update content
+    private JPanel contentPanel; 
     private Customer currentCustomer; // The currently logged-in customer
 
-        // Other actions to perform upon login, like showing the catalog
     
     public OnlineShop() {
         setTitle("Customer Registration and Login");
@@ -35,7 +34,7 @@ public class OnlineShop extends JFrame {
         showInitialButtons();
         
         pack();
-        setLocationRelativeTo(null); // Center the window
+        setLocationRelativeTo(null); 
         setVisible(true);
     }
 
@@ -169,15 +168,14 @@ public class OnlineShop extends JFrame {
         JButton loginButton = new JButton("Login");
         loginButton.addActionListener(e -> {
         	
-        	// Inside your Customer Login ActionListener
         	String username = usernameField.getText();
         	String password = new String(passwordField.getPassword());
 
         	customerLog customerLogger = new customerLog();
         	boolean isAuthenticated = customerLogger.authenticateCust(username, password);
         	if (isAuthenticated) {
-        	    SessionManager.login(username, false); // false for a regular user
-        	    // Proceed to show customer-specific views
+        	    SessionManager.login(username, false); 
+        	    // Proceed to show customer views
         	    showCatalog();
         	} else {
         	    JOptionPane.showMessageDialog(this, "Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
@@ -222,7 +220,6 @@ public class OnlineShop extends JFrame {
         manufacturerComboBox.insertItemAt("All", 0);
         manufacturerComboBox.setSelectedIndex(0);
 
-        // Sorting Controls
         JComboBox<String> sortAttributeComboBox = new JComboBox<>(new String[]{"Title", "Price"});
         JComboBox<String> sortOrderComboBox = new JComboBox<>(new String[]{"Ascending", "Descending"});
 
@@ -231,24 +228,20 @@ public class OnlineShop extends JFrame {
         JPanel itemsDisplayPanel = new JPanel(new MigLayout("wrap"));
         itemsDisplayPanel.setName("itemsDisplayPanel");
 
-        // Adding Components to Layout
         contentPanel.add(new JLabel("Category: "), "split 2, span");
         contentPanel.add(categoryComboBox, "growx");
         contentPanel.add(new JLabel("Manufacturer: "), "split 2, span");
         contentPanel.add(manufacturerComboBox, "growx");
 
-        // Sorting Controls Layout
         contentPanel.add(new JLabel("Sort by: "), "split 2, span");
         contentPanel.add(sortAttributeComboBox, "growx");
         contentPanel.add(new JLabel("Order: "), "split 2, span");
         contentPanel.add(sortOrderComboBox, "growx");
 
-        // Search and View Basket Buttons
         contentPanel.add(searchButton, "span, split 2, growx");
         contentPanel.add(viewBasketButton, "growx");
         contentPanel.add(itemsDisplayPanel, "grow, push");
 
-        // Action Listeners
         searchButton.addActionListener(e -> {
             String selectedCategory = (String) categoryComboBox.getSelectedItem();
             String selectedManufacturer = (String) manufacturerComboBox.getSelectedItem();
@@ -285,20 +278,17 @@ public class OnlineShop extends JFrame {
             return "Ascending".equals(sortOrder) ? comparisonResult : -comparisonResult;
         });
 
-        // Clear previous items and selections
         itemsDisplayPanel.removeAll();
         itemCheckBoxes.clear();
 
-        // Display sorted items with checkboxes
         for (Item item : items) {
             JCheckBox checkBox = new JCheckBox(String.format("%s - $%.2f", item.getTitle(), item.getPrice()));
 
-            // Add action listener to each checkbox
             checkBox.addActionListener(e -> {
                 if (checkBox.isSelected()) {
-                    basket.addItem(item); // Add the item to the basket when selected
+                    basket.addItem(item); 
                 } else {
-                    basket.removeItem(item); // Remove the item from the basket when deselected
+                    basket.removeItem(item); 
                 }
             });
 
@@ -314,7 +304,7 @@ public class OnlineShop extends JFrame {
     private Customer getLoggedInCustomer() {
         String currentUsername = SessionManager.getCurrentUsername();
         if (currentUsername == null) {
-            return null; // No user is logged in
+            return null; 
         }
         customerLog customerLogger = new customerLog();
         return customerLogger.fetchCustomerDetails(currentUsername);
@@ -347,10 +337,9 @@ public class OnlineShop extends JFrame {
 
         JButton checkoutButton = new JButton("Checkout");
         checkoutButton.addActionListener(e -> {
-            // Implement checkout logic here
             basketDialog.setVisible(false);
             basketDialog.dispose();
-            basket.clear(); // Optionally clear the basket after checkout
+            basket.clear(); 
             JOptionPane.showMessageDialog(this, "Checkout successful!");
         });
         basketDialog.add(checkoutButton, "span, grow");
@@ -427,11 +416,11 @@ public class OnlineShop extends JFrame {
             try {
                 Order newOrder = new Order(0, items, currentCustomer, totalPrice, new Date());
                 DBHelper dbHelper = new DBHelper();
-                dbHelper.processOrder(newOrder); // Make sure this is the DBHelper method
+                dbHelper.processOrder(newOrder); 
                 JOptionPane.showMessageDialog(cardDetailsDialog, "Checkout Successful!");
-                basket.clear(); // Clear the shopping cart
-                basketDialog.dispose(); // Close the shopping cart dialog
-                cardDetailsDialog.dispose(); // Close the card details dialog
+                basket.clear(); 
+                basketDialog.dispose(); 
+                cardDetailsDialog.dispose(); 
                 showReviewDialog(items);
             } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(cardDetailsDialog, "Checkout failed: " + ex.getMessage(), "Checkout Failed", JOptionPane.ERROR_MESSAGE);
@@ -446,7 +435,7 @@ public class OnlineShop extends JFrame {
 
     private boolean validateCardDetails(String cardNumber, String expiryDate, String cvc) {
         boolean isValidCardNumber = cardNumber.matches("\\d{16}");
-        boolean isValidExpiryDate = expiryDate.matches("\\d{2}/\\d{2}"); // Simplified validation
+        boolean isValidExpiryDate = expiryDate.matches("\\d{2}/\\d{2}");
         boolean isValidCvc = cvc.matches("\\d{3}");
 
         return isValidCardNumber && isValidExpiryDate && isValidCvc;
@@ -458,7 +447,7 @@ public class OnlineShop extends JFrame {
             throw new IllegalStateException("No customer logged in.");
         }
 
-        double totalPrice = basket.getTotalPrice(); // Now this line should work
+        double totalPrice = basket.getTotalPrice(); 
         List<Item> items = basket.getItems();
         
         Date now = new Date();
@@ -467,7 +456,7 @@ public class OnlineShop extends JFrame {
         DBHelper dbHelper = new DBHelper();
         dbHelper.processOrder(order);
         
-        basket.clear(); // Clears the basket after order processing
+        basket.clear(); 
         // Update UI accordingly
     }
 
@@ -495,13 +484,12 @@ public class OnlineShop extends JFrame {
             }
         });
 
-        // Rating input
+      
         JComboBox<Integer> ratingComboBox = new JComboBox<>(new Integer[]{1, 2, 3, 4, 5});
         
         // Comment input
         JTextField commentField = new JTextField(20);
 
-        // Adding components to the dialog
         reviewDialog.add(new JLabel("Item:"));
         reviewDialog.add(itemComboBox, "growx");
         reviewDialog.add(new JLabel("Rating:"));
@@ -517,7 +505,6 @@ public class OnlineShop extends JFrame {
             Review review = new Review(0, selectedItem, currentCustomer, rating, comment);
             
             try {
-                // Assuming DBHelper has a method to insert a review
                 new DBHelper().insertReview(review);
                 JOptionPane.showMessageDialog(reviewDialog, "Thank you for your review!", "Review Submitted", JOptionPane.INFORMATION_MESSAGE);
             } catch (SQLException ex) {
@@ -536,8 +523,7 @@ public class OnlineShop extends JFrame {
 
 
 	private void showItemDetails(int itemId) {
-        // Here, you would fetch the item details using the item ID
-        // Then display those details in a new panel or dialog
+       
         JOptionPane.showMessageDialog(this, "Showing details for item ID: " + itemId);
     }
 

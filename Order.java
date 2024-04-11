@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -16,6 +17,14 @@ public class Order {
         this.totalPrice = totalPrice;
         this.date = date;
     }
+    public Order(int id, int customerId, double totalPrice, Date orderDate) {
+        this.id = id;
+        this.customer = new Customer(customerId, null, null, null); // Simplified, adjust as needed
+        this.totalPrice = totalPrice;
+        this.date = orderDate;
+        this.items = new ArrayList<>(); 
+    }
+    
 
     // Getters and setters
     public int getId() {

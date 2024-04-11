@@ -4,7 +4,7 @@ public class Item {
     private String manufacturer;
     private double price;
     private String category;
-    private int quantity; // New field for quantity
+    private int quantity; 
 
     // Constructor
     public Item(int id, String title, String manufacturer, double price, String category, int quantity) {

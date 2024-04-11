@@ -22,7 +22,7 @@ public class itemRetreival {
                         rs.getString("manufacturer"),
                         rs.getDouble("price"),
                         rs.getString("category"),
-                        rs.getInt("quantity")); // Assuming you have a constructor in Item class that matches these parameters
+                        rs.getInt("quantity")); 
                 items.add(item);
             }
         } catch (SQLException e) {

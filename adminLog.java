@@ -17,7 +17,6 @@ public class  adminLog {
             Connection connection = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
             PreparedStatement preparedStatement = connection.prepareStatement(sql)
         ) {
-            // Setting parameters for the prepared statement
             preparedStatement.setString(1, username);
             preparedStatement.setString(2, password);
             
