@@ -4,6 +4,8 @@ import javax.swing.*;
 import java.awt.Component; 
 
 import java.awt.event.ActionEvent;
+import java.io.File;
+import java.net.MalformedURLException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Date;
@@ -24,7 +26,7 @@ public class OnlineShop extends JFrame {
 
     
     public OnlineShop() {
-        setTitle("Customer Registration and Login");
+        setTitle("Online Shop");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new MigLayout("fill", "", "[]push[]"));
 
@@ -242,6 +244,7 @@ public class OnlineShop extends JFrame {
         contentPanel.add(viewBasketButton, "growx");
         contentPanel.add(itemsDisplayPanel, "grow, push");
 
+        // Add ActionListener for the search button
         searchButton.addActionListener(e -> {
             String selectedCategory = (String) categoryComboBox.getSelectedItem();
             String selectedManufacturer = (String) manufacturerComboBox.getSelectedItem();
@@ -250,6 +253,7 @@ public class OnlineShop extends JFrame {
             displayItems(selectedCategory, selectedManufacturer, itemsDisplayPanel, sortAttribute, sortOrder);
         });
 
+        // ActionListener for the view basket button
         viewBasketButton.addActionListener(e -> showBasketDialog());
 
         // Initial Display of Items
@@ -258,10 +262,11 @@ public class OnlineShop extends JFrame {
         pack();
     }
 
+    private JLabel imageLabel; // Define imageLabel as a member variable of your class
     private void displayItems(String selectedCategory, String selectedManufacturer, JPanel itemsDisplayPanel, String sortAttribute, String sortOrder) {
         List<Item> items = dbHelper.fetchItemsByCategoryAndManufacturer(selectedCategory, selectedManufacturer);
 
-        // Sort items based on the selected attribute and order
+        // Sorting logic
         items.sort((item1, item2) -> {
             int comparisonResult = 0;
             switch (sortAttribute) {
@@ -278,28 +283,69 @@ public class OnlineShop extends JFrame {
             return "Ascending".equals(sortOrder) ? comparisonResult : -comparisonResult;
         });
 
-        itemsDisplayPanel.removeAll();
+        // Create a new panel to contain the item panels
+        JPanel itemPanelContainer = new JPanel(new MigLayout("wrap 2", "[grow]", "[]10[]"));
+
+        // Clear the map of checkboxes
         itemCheckBoxes.clear();
 
         for (Item item : items) {
-            JCheckBox checkBox = new JCheckBox(String.format("%s - $%.2f", item.getTitle(), item.getPrice()));
+            JPanel itemPanel = new JPanel(new MigLayout("wrap 2", "[grow]", "[]10[]"));
+            JLabel itemLabel = new JLabel(String.format("%s - $%.2f", item.getTitle(), item.getPrice()));
+            JLabel imageLabel = new JLabel();
 
+            try {
+                File imgFile = new File(item.getImagePath());
+                ImageIcon imageIcon = new ImageIcon(imgFile.toURI().toURL());
+                imageLabel.setIcon(imageIcon);
+            } catch (MalformedURLException ex) {
+                imageLabel.setText("Image load failed");
+                System.out.println("Failed to load image: " + item.getImagePath());
+            }
+
+            itemPanel.add(imageLabel, "spany, grow"); // Make the image span multiple grid cells if needed
+            itemPanel.add(itemLabel, "wrap");
+
+            JCheckBox checkBox = new JCheckBox(); // Initialize the checkbox
             checkBox.addActionListener(e -> {
                 if (checkBox.isSelected()) {
-                    basket.addItem(item); 
+                    basket.addItem(item);
+                    try {
+                        // Deduct the quantity of the item from the database
+                        dbHelper.updateItemStock(item.getId(), item.getQuantity() - 1);
+                    } catch (SQLException ex) {
+                        // Handle database update error
+                        ex.printStackTrace();
+                    }
                 } else {
-                    basket.removeItem(item); 
+                    basket.removeItem(item);
+                    // Optionally, you can add logic to increase the quantity in the database when removing an item from the basket
                 }
             });
 
             itemCheckBoxes.put(checkBox, item);
-            itemsDisplayPanel.add(checkBox, "growx");
+            itemPanel.add(checkBox, "growx");
+
+            itemPanelContainer.add(itemPanel, "growx");
         }
+
+        // Create a scroll pane and add the item panel container to it
+        JScrollPane scrollPane = new JScrollPane(itemPanelContainer);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+        // Clear the items display panel and add the scroll pane
+        itemsDisplayPanel.removeAll();
+        itemsDisplayPanel.setLayout(new MigLayout("wrap 1", "[grow]", "[]10[]10[grow][]"));
+        itemsDisplayPanel.add(scrollPane, "grow, push");
 
         itemsDisplayPanel.revalidate();
         itemsDisplayPanel.repaint();
         pack();
     }
+
+
+
 
     private Customer getLoggedInCustomer() {
         String currentUsername = SessionManager.getCurrentUsername();
@@ -468,56 +514,43 @@ public class OnlineShop extends JFrame {
             return;
         }
         
-        JDialog reviewDialog = new JDialog(this, "Leave a Review", true);
-        reviewDialog.setLayout(new MigLayout("wrap 2", "[align right]10[align left, grow]", "[]10[]"));
+        for (Item selectedItem : purchasedItems) {
+            JDialog reviewDialog = new JDialog(this, "Leave a Review", true);
+            reviewDialog.setLayout(new MigLayout("wrap 2", "[align right]10[align left, grow]", "[]10[]"));
 
-        // Dropdown for purchased items
-        JComboBox<Item> itemComboBox = new JComboBox<>(new Vector<>(purchasedItems));
-        itemComboBox.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof Item) {
-                    setText(((Item) value).getTitle());
-                }
-                return this;
-            }
-        });
-
-      
-        JComboBox<Integer> ratingComboBox = new JComboBox<>(new Integer[]{1, 2, 3, 4, 5});
-        
-        // Comment input
-        JTextField commentField = new JTextField(20);
-
-        reviewDialog.add(new JLabel("Item:"));
-        reviewDialog.add(itemComboBox, "growx");
-        reviewDialog.add(new JLabel("Rating:"));
-        reviewDialog.add(ratingComboBox, "growx");
-        reviewDialog.add(new JLabel("Comment:"));
-        reviewDialog.add(commentField, "growx");
-
-        JButton submitButton = new JButton("Submit Review");
-        submitButton.addActionListener(e -> {
-            Item selectedItem = (Item) itemComboBox.getSelectedItem();
-            int rating = (Integer) ratingComboBox.getSelectedItem();
-            String comment = commentField.getText();
-            Review review = new Review(0, selectedItem, currentCustomer, rating, comment);
+            JComboBox<Integer> ratingComboBox = new JComboBox<>(new Integer[]{1, 2, 3, 4, 5});
             
-            try {
-                new DBHelper().insertReview(review);
-                JOptionPane.showMessageDialog(reviewDialog, "Thank you for your review!", "Review Submitted", JOptionPane.INFORMATION_MESSAGE);
-            } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(reviewDialog, "Failed to submit review: " + ex.getMessage(), "Review Submission Error", JOptionPane.ERROR_MESSAGE);
-            }
+            // Comment input
+            JTextField commentField = new JTextField(20);
 
-            reviewDialog.dispose();
-        });
+            reviewDialog.add(new JLabel("Item:"));
+            reviewDialog.add(new JLabel(selectedItem.getTitle()), "growx");
+            reviewDialog.add(new JLabel("Rating:"));
+            reviewDialog.add(ratingComboBox, "growx");
+            reviewDialog.add(new JLabel("Comment:"));
+            reviewDialog.add(commentField, "growx");
 
-        reviewDialog.add(submitButton, "span, growx");
-        reviewDialog.pack();
-        reviewDialog.setLocationRelativeTo(this);
-        reviewDialog.setVisible(true);
+            JButton submitButton = new JButton("Submit Review");
+            submitButton.addActionListener(e -> {
+                int rating = (Integer) ratingComboBox.getSelectedItem();
+                String comment = commentField.getText();
+                Review review = new Review(0, selectedItem, currentCustomer, rating, comment);
+                
+                try {
+                    new DBHelper().insertReview(review);
+                    JOptionPane.showMessageDialog(reviewDialog, "Thank you for your review!", "Review Submitted", JOptionPane.INFORMATION_MESSAGE);
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(reviewDialog, "Failed to submit review: " + ex.getMessage(), "Review Submission Error", JOptionPane.ERROR_MESSAGE);
+                }
+
+                reviewDialog.dispose();
+            });
+
+            reviewDialog.add(submitButton, "span, growx");
+            reviewDialog.pack();
+            reviewDialog.setLocationRelativeTo(this);
+            reviewDialog.setVisible(true);
+        }
     }
 
 

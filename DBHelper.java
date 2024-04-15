@@ -12,8 +12,8 @@ public class DBHelper {
         return DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
     }
 
-    public void insertItem(String title, String manufacturer, double price, String category, int quantity) {
-        String sql = "INSERT INTO items (title, manufacturer, price, category, quantity) VALUES (?, ?, ?, ?, ?)";
+    public void insertItem(String title, String manufacturer, double price, String category, int quantity, String imagePath) {
+        String sql = "INSERT INTO items (title, manufacturer, price, category, quantity, image_path) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, title);
@@ -21,12 +21,14 @@ public class DBHelper {
             pstmt.setDouble(3, price);
             pstmt.setString(4, category);
             pstmt.setInt(5, quantity);
+            pstmt.setString(6, imagePath);
             pstmt.executeUpdate();
             System.out.println("Insert successful");
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
     }
+
 
     public void readItems() {
         String sql = "SELECT * FROM items";
@@ -75,19 +77,19 @@ public class DBHelper {
             
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    items.add(new Item(
+                	items.add(new Item(
                             rs.getInt("id"),
                             rs.getString("title"),
                             rs.getString("manufacturer"),
                             rs.getDouble("price"),
                             rs.getString("category"),
-                            rs.getInt("quantity")));
+                            rs.getInt("quantity"),
+                            rs.getString("image_path"))); // Include image path
                 }
             }
         }
         return items;
     }
-
     public void correctNegativeItemQuantities() throws SQLException {
         String sql = "UPDATE items SET quantity = 0 WHERE quantity < 0";
         try (Connection conn = getConnection();
@@ -127,7 +129,8 @@ public class DBHelper {
                 while (rs.next()) {
                     items.add(new Item(rs.getInt("id"), rs.getString("title"),
                                        rs.getString("manufacturer"), rs.getDouble("price"),
-                                       rs.getString("category"), rs.getInt("quantity")));
+                                       rs.getString("category"), rs.getInt("quantity"),
+                                       rs.getString("image_path"))); // Include image path
                 }
             }
         } catch (SQLException e) {
@@ -135,7 +138,6 @@ public class DBHelper {
         }
         return items;
     }
-
     public static List<String> fetchCategories() {
         List<String> categories = new ArrayList<>();
         String sql = "SELECT DISTINCT category FROM items ORDER BY category";
@@ -181,7 +183,9 @@ public class DBHelper {
                 while (rs.next()) {
                     items.add(new Item(rs.getInt("id"), rs.getString("title"),
                                        rs.getString("manufacturer"), rs.getDouble("price"),
-                                       rs.getString("category"), rs.getInt("quantity")));
+                                       rs.getString("category"), rs.getInt("quantity"),
+                                       rs.getString("image_path")));
+
                 }
             }
         } catch (SQLException e) {
@@ -306,11 +310,13 @@ public class DBHelper {
                         rs.getString("manufacturer"),
                         rs.getDouble("price"),
                         rs.getString("category"),
-                        rs.getInt("quantity")));
+                        rs.getInt("quantity"),
+                        rs.getString("image_path"))); // Include image path
             }
         }
         return items;
     }
+
     
     public List<Customer> getCustomerDetails() throws SQLException {
         List<Customer> customers = new ArrayList<>();
@@ -393,14 +399,15 @@ public class DBHelper {
                     double price = rs.getDouble("price");
                     String category = rs.getString("category");
                     int quantity = rs.getInt("quantity");
+                    String imagePath = rs.getString("image_path"); // This line was missing
 
-                    // Create and return the Item object
-                    return new Item(itemId, title, manufacturer, price, category, quantity);
+                    return new Item(itemId, title, manufacturer, price, category, quantity, imagePath);
                 }
             }
         }
         return null; 
     }
+
 
     public Customer fetchCustomerById(int customerId) throws SQLException {
         String sql = "SELECT * FROM customershop WHERE id = ?";

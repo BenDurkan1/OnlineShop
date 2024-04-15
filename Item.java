@@ -5,18 +5,28 @@ public class Item {
     private double price;
     private String category;
     private int quantity; 
+    private String imagePath; // New field for image path
 
     // Constructor
-    public Item(int id, String title, String manufacturer, double price, String category, int quantity) {
+    public Item(int id, String title, String manufacturer, double price, String category, int quantity, String imagePath) {
         this.id = id;
         this.title = title;
         this.manufacturer = manufacturer;
         this.price = price;
         this.category = category;
         this.quantity = quantity;
+        this.imagePath = imagePath;
+
     }
 
-    
+    // Getters and setters
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
+    }
 
 	// Getters and setters
     public int getId() {
@@ -66,6 +76,8 @@ public class Item {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
+
+
 
 
 
