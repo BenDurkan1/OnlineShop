@@ -12,7 +12,7 @@ import java.awt.*;
 public class AdminDashboard extends JFrame {
 	 private JPanel contentPanel;
 	    private JPanel controlPanel; // Panel for navigation buttons
-	    private DBHelper dbHelper = new DBHelper();
+	    DBHelper dbHelper = DBHelper.getInstance();
 	    public AdminDashboard() {
 	        setTitle("Admin Dashboard");
 	        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -121,7 +121,7 @@ public class AdminDashboard extends JFrame {
 	            } else {
 	                for (Review review : reviews) {
 	                    // Item associated with the review
-	                    Item item = review.getItem();
+	                	Item item = review.getItem(); 
 
 	                    String reviewDetails = String.format(
 	                        "<html>Item: %s<br>Rating: %d<br>Comment: %s</html>",
@@ -151,7 +151,7 @@ public class AdminDashboard extends JFrame {
 	            JPanel itemsPanel = new JPanel(new MigLayout("wrap 1", "[grow]", "[]"));
 
 	            for (Item item : items) {
-	                String filePath = item.getImagePath(); // Assuming direct path like 'C:\\Users\\bendu\\Downloads\\womensGraphicTee.jpg'
+	                String filePath = item.getImagePath();
 	                ImageIcon imageIcon = new ImageIcon(filePath);
 	                JLabel imageLabel = new JLabel();
 

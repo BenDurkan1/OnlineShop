@@ -4,9 +4,27 @@ import java.util.List;
 
 public class DBHelper {
 
-    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/Ben?serverTimezone=UTC";
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "root";
+	 private static final String JDBC_URL = "jdbc:mysql://localhost:3306/Ben?serverTimezone=UTC";
+	    private static final String USERNAME = "root";
+	    private static final String PASSWORD = "root";
+
+	    // Singleton instance
+	    private static DBHelper instance;
+
+	    // Private constructor to prevent instantiation from other classes
+	    private DBHelper() {}
+
+	    // Public static method that returns the instance of the class, with double-checked locking
+	    public static DBHelper getInstance() {
+	        if (instance == null) {
+	            synchronized (DBHelper.class) {
+	                if (instance == null) {
+	                    instance = new DBHelper();
+	                }
+	            }
+	        }
+	        return instance;
+	    }
 
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);

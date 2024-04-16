@@ -93,6 +93,9 @@ public class OnlineShop extends JFrame {
         submitButton.addActionListener(e -> {
             CustomerReg customerReg = new CustomerReg();
             try {
+            	// Factory Method
+                Customer newCustomer = CustomerFactory.createCustomer(0, usernameField.getText(), shippingAddressField.getText(), paymentMethodField.getText());
+
                 boolean success = customerReg.registerCust(
                     usernameField.getText(), 
                     new String(passwordField.getPassword()), 
@@ -204,7 +207,7 @@ public class OnlineShop extends JFrame {
 
 
 
-	private DBHelper dbHelper = new DBHelper();
+    DBHelper dbHelper = DBHelper.getInstance();
     private final Basket basket = new Basket(); // Basket instance for the class
     private Map<JCheckBox, Item> itemCheckBoxes = new HashMap<>();
     private void showCatalog() {
@@ -263,6 +266,7 @@ public class OnlineShop extends JFrame {
     }
 
     private JLabel imageLabel; // Define imageLabel as a member variable of your class
+  
     private void displayItems(String selectedCategory, String selectedManufacturer, JPanel itemsDisplayPanel, String sortAttribute, String sortOrder) {
         List<Item> items = dbHelper.fetchItemsByCategoryAndManufacturer(selectedCategory, selectedManufacturer);
 
@@ -283,10 +287,8 @@ public class OnlineShop extends JFrame {
             return "Ascending".equals(sortOrder) ? comparisonResult : -comparisonResult;
         });
 
-        // Create a new panel to contain the item panels
         JPanel itemPanelContainer = new JPanel(new MigLayout("wrap 2", "[grow]", "[]10[]"));
 
-        // Clear the map of checkboxes
         itemCheckBoxes.clear();
 
         for (Item item : items) {
@@ -311,7 +313,6 @@ public class OnlineShop extends JFrame {
                 if (checkBox.isSelected()) {
                     basket.addItem(item);
                     try {
-                        // Deduct the quantity of the item from the database
                         dbHelper.updateItemStock(item.getId(), item.getQuantity() - 1);
                     } catch (SQLException ex) {
                         // Handle database update error
@@ -319,7 +320,6 @@ public class OnlineShop extends JFrame {
                     }
                 } else {
                     basket.removeItem(item);
-                    // Optionally, you can add logic to increase the quantity in the database when removing an item from the basket
                 }
             });
 
@@ -461,7 +461,7 @@ public class OnlineShop extends JFrame {
 
             try {
                 Order newOrder = new Order(0, items, currentCustomer, totalPrice, new Date());
-                DBHelper dbHelper = new DBHelper();
+                DBHelper dbHelper = DBHelper.getInstance();
                 dbHelper.processOrder(newOrder); 
                 JOptionPane.showMessageDialog(cardDetailsDialog, "Checkout Successful!");
                 basket.clear(); 
@@ -498,8 +498,8 @@ public class OnlineShop extends JFrame {
         
         Date now = new Date();
         Order order = new Order(0, items, currentCustomer, totalPrice, now);
-        
-        DBHelper dbHelper = new DBHelper();
+        // factory method
+        Order newOrder = OrderFactory.createOrder(0, items, currentCustomer, totalPrice, new Date());
         dbHelper.processOrder(order);
         
         basket.clear(); 
@@ -534,10 +534,10 @@ public class OnlineShop extends JFrame {
             submitButton.addActionListener(e -> {
                 int rating = (Integer) ratingComboBox.getSelectedItem();
                 String comment = commentField.getText();
-                Review review = new Review(0, selectedItem, currentCustomer, rating, comment);
+                Review review = ReviewFactory.createReview(0, selectedItem, currentCustomer, rating, comment);
                 
                 try {
-                    new DBHelper().insertReview(review);
+                	DBHelper.getInstance().insertReview(review);
                     JOptionPane.showMessageDialog(reviewDialog, "Thank you for your review!", "Review Submitted", JOptionPane.INFORMATION_MESSAGE);
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(reviewDialog, "Failed to submit review: " + ex.getMessage(), "Review Submission Error", JOptionPane.ERROR_MESSAGE);
