@@ -1,16 +1,17 @@
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 public class Order {
     private int id;
-    private List<Item> items;
+    private List<ItemInt> items;
     private Customer customer;
     private double totalPrice;
     private Date date;
 
     // Constructor
-    public Order(int id, List<Item> items, Customer customer, double totalPrice, Date date) {
+    public Order(int id, List<ItemInt> items, Customer customer, double totalPrice, Date date) {
         this.id = id;
         this.items = items;
         this.customer = customer;
@@ -35,11 +36,11 @@ public class Order {
         this.id = id;
     }
 
-    public List<Item> getItems() {
+    public List<ItemInt> getItems() {
         return items;
     }
 
-    public void setItems(List<Item> items) {
+    public void setItems(List<ItemInt> items) {
         this.items = items;
     }
 

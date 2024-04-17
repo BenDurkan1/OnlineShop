@@ -3,28 +3,41 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DBHelper {
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/Ben?serverTimezone=UTC";
+    private static final String USERNAME = "root";
+    private static final String PASSWORD = "root";
+    private List<Observer> observers = new ArrayList<>();
 
-	 private static final String JDBC_URL = "jdbc:mysql://localhost:3306/Ben?serverTimezone=UTC";
-	    private static final String USERNAME = "root";
-	    private static final String PASSWORD = "root";
+    // Singleton instance
+    private static DBHelper instance;
 
-	    // Singleton instance
-	    private static DBHelper instance;
+    // Private constructor to prevent instantiation from other classes
+    private DBHelper() {}
 
-	    // Private constructor to prevent instantiation from other classes
-	    private DBHelper() {}
+    public static DBHelper getInstance() {
+        if (instance == null) {
+            synchronized (DBHelper.class) {
+                if (instance == null) {
+                    instance = new DBHelper();
+                }
+            }
+        }
+        return instance;
+    }
 
-	    // Public static method that returns the instance of the class, with double-checked locking
-	    public static DBHelper getInstance() {
-	        if (instance == null) {
-	            synchronized (DBHelper.class) {
-	                if (instance == null) {
-	                    instance = new DBHelper();
-	                }
-	            }
-	        }
-	        return instance;
-	    }
+    public void addObserver(Observer o) {
+        observers.add(o);
+    }
+
+    public void removeObserver(Observer o) {
+        observers.remove(o);
+    }
+
+    private void notifyObservers(String message) {
+        for (Observer observer : observers) {
+            observer.update(message);
+        }
+    }
 
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
@@ -223,7 +236,7 @@ public class DBHelper {
 
             int orderId = insertOrder(conn, order);
 
-            for (Item item : order.getItems()) {
+            for (ItemInt item : order.getItems()) {
                 insertOrderItem(conn, orderId, item.getId(), item.getQuantity());
             }
 
@@ -289,7 +302,7 @@ public class DBHelper {
             pstmt.setDouble(3, price);
             pstmt.setString(4, category);
             pstmt.setInt(5, quantity);
-            pstmt.setInt(6, adminId); // Set the admin ID
+            pstmt.setInt(6, adminId); 
             pstmt.setInt(7, itemId);
             pstmt.executeUpdate();
         } catch (SQLException e) {
@@ -329,7 +342,7 @@ public class DBHelper {
                         rs.getDouble("price"),
                         rs.getString("category"),
                         rs.getInt("quantity"),
-                        rs.getString("image_path"))); // Include image path
+                        rs.getString("image_path"))); 
             }
         }
         return items;

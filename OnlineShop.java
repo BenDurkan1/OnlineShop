@@ -1,4 +1,4 @@
-import net.miginfocom.swing.MigLayout;
+  import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
 
 import java.awt.Component; 
@@ -12,8 +12,11 @@ import java.util.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,16 +25,23 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class OnlineShop extends JFrame {
     private JPanel contentPanel; 
-    private Customer currentCustomer; // The currently logged-in customer
+    private Customer currentCustomer; 
+    private final DataModel dataModel; // Instance of DataModel for managing data
+    private static final SortingStrategy TITLE_SORTING_STRATEGY = new TitleSortingStrategy();
+    private static final SortingStrategy PRICE_SORTING_STRATEGY = new PriceSortingStrategy();
+    private SortingStrategy sortingStrategy; // Declare sortingStrategy field
+    private final Basket basket = new Basket(); // Basket instance for the class
 
-    
     public OnlineShop() {
-        setTitle("Online Shop");
+
+        this.dataModel = new DataModel();
+		setTitle("Online Shop");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new MigLayout("fill", "", "[]push[]"));
 
         contentPanel = new JPanel(new MigLayout());
         add(contentPanel, "grow, push");
+        sortingStrategy = TITLE_SORTING_STRATEGY;
 
         showInitialButtons();
         
@@ -141,7 +151,6 @@ public class OnlineShop extends JFrame {
         	boolean authenticated = adminLogger.authenticateAdmin(username, password);
         	if (authenticated) {
         	    SessionManager.login(username, true); // true for admin
-        	    // Proceed to admin dashboard or views
         	    navigateToAdminDashboard();
         	} else {
         	    JOptionPane.showMessageDialog(this, "Admin Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
@@ -154,7 +163,9 @@ public class OnlineShop extends JFrame {
         pack();
     }
     private void navigateToAdminDashboard() {
-        new AdminDashboard(); // Create and display the admin dashboard
+        // Create and display the admin dashboard with the DataModel instance
+        AdminDashboard adminDashboard = new AdminDashboard(dataModel);
+        adminDashboard.setVisible(true);
     }
 
     private void setupLoginPanel(String title, boolean showRegister) {
@@ -180,7 +191,7 @@ public class OnlineShop extends JFrame {
         	boolean isAuthenticated = customerLogger.authenticateCust(username, password);
         	if (isAuthenticated) {
         	    SessionManager.login(username, false); 
-        	    // Proceed to show customer views
+        	    
         	    showCatalog();
         	} else {
         	    JOptionPane.showMessageDialog(this, "Login Failed. Please check your credentials and try again.", "Login Error", JOptionPane.ERROR_MESSAGE);
@@ -208,8 +219,8 @@ public class OnlineShop extends JFrame {
 
 
     DBHelper dbHelper = DBHelper.getInstance();
-    private final Basket basket = new Basket(); // Basket instance for the class
     private Map<JCheckBox, Item> itemCheckBoxes = new HashMap<>();
+ 
     private void showCatalog() {
         contentPanel.removeAll();
         contentPanel.setLayout(new MigLayout("wrap", "[grow]", "[]10[]10[grow][]"));
@@ -231,7 +242,6 @@ public class OnlineShop extends JFrame {
         JButton searchButton = new JButton("Search");
         JButton viewBasketButton = new JButton("View Basket");
         JPanel itemsDisplayPanel = new JPanel(new MigLayout("wrap"));
-        itemsDisplayPanel.setName("itemsDisplayPanel");
 
         contentPanel.add(new JLabel("Category: "), "split 2, span");
         contentPanel.add(categoryComboBox, "growx");
@@ -247,105 +257,110 @@ public class OnlineShop extends JFrame {
         contentPanel.add(viewBasketButton, "growx");
         contentPanel.add(itemsDisplayPanel, "grow, push");
 
-        // Add ActionListener for the search button
         searchButton.addActionListener(e -> {
             String selectedCategory = (String) categoryComboBox.getSelectedItem();
             String selectedManufacturer = (String) manufacturerComboBox.getSelectedItem();
             String sortAttribute = (String) sortAttributeComboBox.getSelectedItem();
             String sortOrder = (String) sortOrderComboBox.getSelectedItem();
-            displayItems(selectedCategory, selectedManufacturer, itemsDisplayPanel, sortAttribute, sortOrder);
+
+            System.out.println("Sort Attribute: " + sortAttribute); // Debug print
+
+            if ("Title".equals(sortAttribute)) {
+                sortingStrategy = new TitleSortingStrategy();
+            } else if ("Price".equals(sortAttribute)) {
+                sortingStrategy = new PriceSortingStrategy();
+            } else {
+                sortingStrategy = TITLE_SORTING_STRATEGY; // Default 
+            }
+
+            displayItems(selectedCategory, selectedManufacturer, itemsDisplayPanel, sortingStrategy, sortOrder);
         });
 
-        // ActionListener for the view basket button
+        
         viewBasketButton.addActionListener(e -> showBasketDialog());
 
-        // Initial Display of Items
-        displayItems("All", "All", itemsDisplayPanel, "Title", "Ascending");
+        
+        displayItems("All", "All", itemsDisplayPanel, null, "Ascending"); 
 
         pack();
-    }
-
-    private JLabel imageLabel; // Define imageLabel as a member variable of your class
-  
-    private void displayItems(String selectedCategory, String selectedManufacturer, JPanel itemsDisplayPanel, String sortAttribute, String sortOrder) {
-        List<Item> items = dbHelper.fetchItemsByCategoryAndManufacturer(selectedCategory, selectedManufacturer);
-
-        // Sorting logic
-        items.sort((item1, item2) -> {
-            int comparisonResult = 0;
-            switch (sortAttribute) {
-                case "Title":
-                    comparisonResult = item1.getTitle().compareTo(item2.getTitle());
-                    break;
-                case "Manufacturer":
-                    comparisonResult = item1.getManufacturer().compareTo(item2.getManufacturer());
-                    break;
-                case "Price":
-                    comparisonResult = Double.compare(item1.getPrice(), item2.getPrice());
-                    break;
-            }
-            return "Ascending".equals(sortOrder) ? comparisonResult : -comparisonResult;
-        });
-
-        JPanel itemPanelContainer = new JPanel(new MigLayout("wrap 2", "[grow]", "[]10[]"));
-
-        itemCheckBoxes.clear();
-
-        for (Item item : items) {
-            JPanel itemPanel = new JPanel(new MigLayout("wrap 2", "[grow]", "[]10[]"));
-            JLabel itemLabel = new JLabel(String.format("%s - $%.2f", item.getTitle(), item.getPrice()));
-            JLabel imageLabel = new JLabel();
-
-            try {
-                File imgFile = new File(item.getImagePath());
-                ImageIcon imageIcon = new ImageIcon(imgFile.toURI().toURL());
-                imageLabel.setIcon(imageIcon);
-            } catch (MalformedURLException ex) {
-                imageLabel.setText("Image load failed");
-                System.out.println("Failed to load image: " + item.getImagePath());
-            }
-
-            itemPanel.add(imageLabel, "spany, grow"); // Make the image span multiple grid cells if needed
-            itemPanel.add(itemLabel, "wrap");
-
-            JCheckBox checkBox = new JCheckBox(); // Initialize the checkbox
-            checkBox.addActionListener(e -> {
-                if (checkBox.isSelected()) {
-                    basket.addItem(item);
-                    try {
-                        dbHelper.updateItemStock(item.getId(), item.getQuantity() - 1);
-                    } catch (SQLException ex) {
-                        // Handle database update error
-                        ex.printStackTrace();
-                    }
-                } else {
-                    basket.removeItem(item);
-                }
-            });
-
-            itemCheckBoxes.put(checkBox, item);
-            itemPanel.add(checkBox, "growx");
-
-            itemPanelContainer.add(itemPanel, "growx");
         }
 
-        // Create a scroll pane and add the item panel container to it
-        JScrollPane scrollPane = new JScrollPane(itemPanelContainer);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+    private JLabel imageLabel;
 
-        // Clear the items display panel and add the scroll pane
-        itemsDisplayPanel.removeAll();
-        itemsDisplayPanel.setLayout(new MigLayout("wrap 1", "[grow]", "[]10[]10[grow][]"));
-        itemsDisplayPanel.add(scrollPane, "grow, push");
+    private void displayItems(String selectedCategory, String selectedManufacturer, JPanel itemsDisplayPanel,
+            SortingStrategy sortingStrategy, String sortOrder) {
+List<Item> rawItems = dbHelper.fetchItemsByCategoryAndManufacturer(selectedCategory, selectedManufacturer);
+List<ItemInt> items = new ArrayList<>();
 
-        itemsDisplayPanel.revalidate();
-        itemsDisplayPanel.repaint();
-        pack();
+for (Item item : rawItems) {
+items.add(new DiscountDecorator(item, 10)); // Assume 10% discount for all items for simplicity
+}
+
+// Check if sorting strategy is null and set default if necessary
+if (sortingStrategy == null) {
+sortingStrategy = TITLE_SORTING_STRATEGY; // Default to title sorting if none is set
+}
+
+sortingStrategy.sort(items);
+if ("Descending".equals(sortOrder)) {
+Collections.reverse(items);
+}
+
+
+itemCheckBoxes.clear();
+JPanel itemPanelContainer = new JPanel(new MigLayout("wrap 2", "[grow]", "[]10[]"));
+
+for (ItemInt decoratedItem : items) {
+Item actualItem = ((ItemDecorator)decoratedItem).getDecoratedItem();  
+
+JLabel itemLabel = new JLabel(decoratedItem.getDescription());
+JLabel imageLabel = new JLabel();
+try {
+File imgFile = new File(actualItem.getImagePath());
+ImageIcon imageIcon = new ImageIcon(imgFile.toURI().toURL());
+imageLabel.setIcon(imageIcon);
+} catch (MalformedURLException ex) {
+imageLabel.setText("Image load failed");
+System.out.println("Failed to load image: " + actualItem.getImagePath());
+}
+
+JPanel itemPanel = new JPanel(new MigLayout("wrap 2", "[grow]", "[]10[]"));
+itemPanel.add(imageLabel, "spany, grow");
+itemPanel.add(itemLabel, "wrap");
+
+JCheckBox checkBox = new JCheckBox(String.format("Buy at $%.2f", decoratedItem.getPrice()));
+checkBox.addActionListener(e -> {
+if (checkBox.isSelected()) {
+  basket.addItem(actualItem);
+  try {
+      dbHelper.updateItemStock(actualItem.getId(), actualItem.getQuantity() - 1);
+  } catch (SQLException ex) {
+      ex.printStackTrace();
+  }
+} else {
+  basket.removeItem(actualItem);
+}
+});
+
+itemCheckBoxes.put(checkBox, actualItem);
+itemPanel.add(checkBox, "growx");
+itemPanelContainer.add(itemPanel, "growx");
+}
+
+JScrollPane scrollPane = new JScrollPane(itemPanelContainer);
+itemsDisplayPanel.removeAll();
+itemsDisplayPanel.add(scrollPane, "grow, push");
+itemsDisplayPanel.revalidate();
+itemsDisplayPanel.repaint();
+pack();
+}
+
+
+    public void addItemToBasket(Item item) {
+        ItemInt decoratedItem = new DiscountDecorator(item, 10);  
+        System.out.println("Adding to basket with discounted price: " + decoratedItem.getPrice());
+        basket.addItem(decoratedItem);
     }
-
-
-
 
     private Customer getLoggedInCustomer() {
         String currentUsername = SessionManager.getCurrentUsername();
@@ -356,7 +371,7 @@ public class OnlineShop extends JFrame {
         return customerLogger.fetchCustomerDetails(currentUsername);
     }
     
-    // Method to view and manage the basket
+
     private void showBasket() {
         Customer currentCustomer = getLoggedInCustomer();
         if (currentCustomer == null) {
@@ -371,22 +386,24 @@ public class OnlineShop extends JFrame {
             return;
         }
 
-        AtomicReference<Double> totalPrice = new AtomicReference<>(0.0); // Initialize total price
+        AtomicReference<Double> totalPrice = new AtomicReference<>(0.0);
 
-        for (Item item : basket.getItems()) {
-            basketDialog.add(new JLabel(item.getTitle() + " - $" + item.getPrice()), "span, grow");
-            totalPrice.updateAndGet(value -> value + item.getPrice()); // Accumulate item prices for total price
+        for (ItemInt item : basket.getItems()) {
+            // Apply discount decorator when displaying items
+            ItemInt discountedItem = new DiscountDecorator((Item) item, 10);
+            basketDialog.add(new JLabel(discountedItem.getDescription() + " - $" + String.format("%.2f", discountedItem.getPrice())), "span, grow");
+            totalPrice.updateAndGet(value -> value + discountedItem.getPrice());
         }
 
         JLabel totalPriceLabel = new JLabel(String.format("Total Price: $%.2f", totalPrice.get()));
         basketDialog.add(totalPriceLabel, "span, growx");
 
         JButton checkoutButton = new JButton("Checkout");
+        double finalTotalPrice = totalPrice.get(); 
         checkoutButton.addActionListener(e -> {
             basketDialog.setVisible(false);
             basketDialog.dispose();
-            basket.clear(); 
-            JOptionPane.showMessageDialog(this, "Checkout successful!");
+            showCardDetailsDialog(finalTotalPrice, basketDialog, basket.getItems());
         });
         basketDialog.add(checkoutButton, "span, grow");
 
@@ -394,44 +411,50 @@ public class OnlineShop extends JFrame {
         basketDialog.setLocationRelativeTo(this);
         basketDialog.setVisible(true);
     }
-   
+
     private void showBasketDialog() {
         Customer currentCustomer = getLoggedInCustomer();
         if (currentCustomer == null) {
-            JOptionPane.showMessageDialog(this, "No customer logged in.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Your basket is empty.", "Basket Empty", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
+
+        List<ItemInt> items = basket.getItems();
+        if (items.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Your basket is empty.", "Basket Empty", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
         JDialog basketDialog = new JDialog(this, "Basket", true);
         basketDialog.setLayout(new MigLayout("wrap 2"));
 
-        if (basket.getItems().isEmpty()) {
-            JOptionPane.showMessageDialog(basketDialog, "Your basket is empty.", "Basket Empty", JOptionPane.INFORMATION_MESSAGE);
-            return;
+        double totalPrice = 0.0; // Initialize total price variable
+
+        for (ItemInt item : items) {
+            // Apply discount decorator when displaying items
+            ItemInt discountedItem = new DiscountDecorator((Item) item, 10); 
+            String itemDescription = discountedItem.getDescription() + " - $" + String.format("%.2f", discountedItem.getPrice());
+            basketDialog.add(new JLabel(itemDescription), "span, grow");
+            totalPrice += discountedItem.getPrice(); // Update total price
         }
 
-        AtomicReference<Double> totalPrice = new AtomicReference<>(0.0);
-
-        for (Item item : basket.getItems()) {
-            basketDialog.add(new JLabel(item.getTitle() + " - $" + item.getPrice()), "span, grow");
-            totalPrice.updateAndGet(value -> value + item.getPrice());
-        }
-
-        JLabel totalPriceLabel = new JLabel(String.format("Total Price: $%.2f", totalPrice.get()));
+        JLabel totalPriceLabel = new JLabel(String.format("Total Price: $%.2f", totalPrice));
         basketDialog.add(totalPriceLabel, "span, growx");
 
         JButton checkoutButton = new JButton("Checkout");
+        double finalTotalPrice = totalPrice; //  totalPrice in a final variable
         checkoutButton.addActionListener(e -> {
-            // Show the card details dialog
-            showCardDetailsDialog(totalPrice.get(), basketDialog, basket.getItems());
+            basketDialog.dispose();
+            showCardDetailsDialog(finalTotalPrice, basketDialog, items);
         });
-
         basketDialog.add(checkoutButton, "span, growx");
         basketDialog.pack();
         basketDialog.setLocationRelativeTo(this);
         basketDialog.setVisible(true);
     }
 
-    private void showCardDetailsDialog(double totalPrice, JDialog basketDialog, List<Item> items) {
+
+    private void showCardDetailsDialog(double totalPrice, JDialog basketDialog, List<ItemInt> items) {
         JDialog cardDetailsDialog = new JDialog(this, "Card Details", true);
         cardDetailsDialog.setLayout(new MigLayout("wrap 2", "[align right]10[align left, grow]", "[]10[]"));
 
@@ -455,7 +478,7 @@ public class OnlineShop extends JFrame {
 
             Customer currentCustomer = getLoggedInCustomer();
             if (currentCustomer == null) {
-            	JOptionPane.showMessageDialog(cardDetailsDialog, "Error: No customer is logged in.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(cardDetailsDialog, "Error: No customer is logged in.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
@@ -479,42 +502,58 @@ public class OnlineShop extends JFrame {
         cardDetailsDialog.setVisible(true);
     }
 
+
     private boolean validateCardDetails(String cardNumber, String expiryDate, String cvc) {
         boolean isValidCardNumber = cardNumber.matches("\\d{16}");
-        boolean isValidExpiryDate = expiryDate.matches("\\d{2}/\\d{2}");
         boolean isValidCvc = cvc.matches("\\d{3}");
 
-        return isValidCardNumber && isValidExpiryDate && isValidCvc;
+        // Check if the card number and CVC are valid
+        if (!isValidCardNumber || !isValidCvc) {
+            return false;
+        }
+
+        
+        boolean isValidExpiryDate = expiryDate.matches("\\d{2}/\\d{2}");
+        if (!isValidExpiryDate) {
+            return false;
+        }
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("MM/yy");
+            sdf.setLenient(false);
+            Date expiry = sdf.parse(expiryDate);
+            boolean isExpired = expiry.before(new Date());
+            return !isExpired;
+        } catch (ParseException e) {
+            return false; // If the date can't be parsed, return false
+        }
     }
 
     
-    private void processOrder() throws SQLException {
-        if (currentCustomer == null) {
-            throw new IllegalStateException("No customer logged in.");
-        }
+    	private void processOrder() throws SQLException {
+    	    if (currentCustomer == null) {
+    	        throw new IllegalStateException("No customer logged in.");
+    	    }
 
-        double totalPrice = basket.getTotalPrice(); 
-        List<Item> items = basket.getItems();
-        
-        Date now = new Date();
-        Order order = new Order(0, items, currentCustomer, totalPrice, now);
-        // factory method
-        Order newOrder = OrderFactory.createOrder(0, items, currentCustomer, totalPrice, new Date());
-        dbHelper.processOrder(order);
-        
-        basket.clear(); 
-        // Update UI accordingly
-    }
+    	    double totalPrice = basket.getTotalPrice(); 
+    	    List<ItemInt> items = basket.getItems();
+    	    
+    	    Date now = new Date();
+    	    Order newOrder = OrderFactory.createOrder(0, items, currentCustomer, totalPrice, now);
+    	    dbHelper.processOrder(newOrder);
+    	    
+    	    basket.clear(); 
+    	}
 
-    private void showReviewDialog(List<Item> purchasedItems) {
-        // Ensure a customer is logged in before proceeding
+
+    private void showReviewDialog(List<ItemInt> items) {
         Customer currentCustomer = getLoggedInCustomer();
         if (currentCustomer == null) {
             JOptionPane.showMessageDialog(this, "You must be logged in to leave a review.", "Not Logged In", JOptionPane.ERROR_MESSAGE);
             return;
         }
         
-        for (Item selectedItem : purchasedItems) {
+        for (ItemInt selectedItem : items) {
             JDialog reviewDialog = new JDialog(this, "Leave a Review", true);
             reviewDialog.setLayout(new MigLayout("wrap 2", "[align right]10[align left, grow]", "[]10[]"));
 
@@ -539,7 +578,8 @@ public class OnlineShop extends JFrame {
                 try {
                 	DBHelper.getInstance().insertReview(review);
                     JOptionPane.showMessageDialog(reviewDialog, "Thank you for your review!", "Review Submitted", JOptionPane.INFORMATION_MESSAGE);
-                } catch (SQLException ex) {
+                } catch (SQLException ex)
+                {
                     JOptionPane.showMessageDialog(reviewDialog, "Failed to submit review: " + ex.getMessage(), "Review Submission Error", JOptionPane.ERROR_MESSAGE);
                 }
 

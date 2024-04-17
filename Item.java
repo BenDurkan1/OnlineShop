@@ -1,11 +1,11 @@
-public class Item {
-    private int id;
-    private String title;
-    private String manufacturer;
-    private double price;
-    private String category;
-    private int quantity; 
-    private String imagePath; // New field for image path
+public class Item  implements ItemInt{
+	 private int id;
+	    private String title;
+	    private String manufacturer;
+	    private double price;
+	    private String category;
+	    private int quantity;
+	    private String imagePath;
 
     // Constructor
     public Item(int id, String title, String manufacturer, double price, String category, int quantity, String imagePath) {
@@ -76,13 +76,11 @@ public class Item {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
+   
 
+    @Override
+    public String getDescription() {
+        return String.format("Title: %s, Category: %s, Price: $%.2f", title, category, price);
+    }
 
-
-
-
-
-
-
-	
 }

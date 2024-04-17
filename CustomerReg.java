@@ -10,7 +10,6 @@ public class CustomerReg {
     private static final String PASSWORD = "root";
 
     public boolean registerCust(String username, String password, String shippingAddress, String paymentMethod) {
-        // Check password requirements
         if (!isPasswordValid(password)) {
             System.err.println("Password does not meet requirements.");
             return false;
@@ -27,13 +26,12 @@ public class CustomerReg {
             preparedStatement.setString(3, shippingAddress);
             preparedStatement.setString(4, paymentMethod);
 
-            // Executing the SQL query to insert the customer
             int rowsAffected = preparedStatement.executeUpdate();
 
             return rowsAffected > 0;
         } catch (SQLException e) {
             e.printStackTrace();
-            return false; // Registration failed
+            return false; 
         }
     }
 

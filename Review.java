@@ -1,12 +1,14 @@
+
+
 public class Review {
     private int id;
-    private Item item;
+    private ItemInt item;
     private Customer customer;
     private int rating;
     private String comment;
 
     // Constructor
-    public Review(int id, Item item, Customer customer, int rating, String comment) {
+    public Review(int id, ItemInt item, Customer customer, int rating, String comment) {
         this.id = id;
         this.item = item;
         this.customer = customer;
@@ -24,10 +26,10 @@ public class Review {
     }
 
     public Item getItem() {
-        return item;
+        return (Item) item;
     }
 
-    public void setItem(Item item) {
+    public void setItem(ItemInt item) {
         this.item = item;
     }
 

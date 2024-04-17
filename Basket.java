@@ -2,17 +2,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Basket {
-    private final List<Item> items = new ArrayList<>();
+    private final List<ItemInt> items = new ArrayList<>();
 
-    public void addItem(Item item) {
-        items.add(item);
+    public void addItem(ItemInt decoratedItem) {
+        items.add(decoratedItem);
     }
 
-    public void removeItem(Item item) {
+    public void removeItem(ItemInt item) {
         items.remove(item);
     }
 
-    public List<Item> getItems() {
+    public List<ItemInt> getItems() {
         return new ArrayList<>(items);
     }
 
@@ -21,7 +21,6 @@ public class Basket {
     }
 
     public double getTotalPrice() {
-        return items.stream().mapToDouble(Item::getPrice).sum();
+        return items.stream().mapToDouble(ItemInt::getPrice).sum();
     }
-
 }

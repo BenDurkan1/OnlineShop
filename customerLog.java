@@ -59,7 +59,6 @@ public class  customerLog {
                 String user = resultSet.getString("username");
                 String shippingAddress = resultSet.getString("shipping_address"); 
                 String paymentMethod = resultSet.getString("payment_method");
-                // Return a new Customer object, adjust constructor as needed
                 return new Customer(id, user, shippingAddress,  paymentMethod);
             }
         } catch (SQLException e) {

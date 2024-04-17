@@ -25,13 +25,13 @@ public class  adminLog {
             
             // If a record with matching credentials is found, return true
             if (resultSet.next() && resultSet.getInt(1) > 0) {
-                return true; // Authentication successful
+                return true; 
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
         
-        return false; // Authentication failed
+        return false; 
     }
     
    
